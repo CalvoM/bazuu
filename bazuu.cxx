@@ -1,4 +1,4 @@
-#include "includes/bazuu_ce.hpp"
+#include <bazuu_ce_board.hpp>
 
 int main() {
   BazuuBoard board;

@@ -8,6 +8,8 @@ project(
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_INSTALL_PREFIX "/usr/local/include")
+set(CMAKE_CONFIGURATION_TYPES "Debug")
+set(CMAKE_BUILD_TYPE "Debug")
 
 # find_package(quill REQUIRED)
 FetchContent_Declare(

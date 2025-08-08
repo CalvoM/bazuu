@@ -41,3 +41,4 @@
 *.dwo
 .cache/clangd/index
 build
+compile_commands.json
