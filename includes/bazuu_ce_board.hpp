@@ -6,7 +6,9 @@
 #include <cstdint>
 #include <defs.hpp>
 #include <memory>
+#include <print>
 #include <string>
+#include <string_view>
 #include <utility>
 
 class BazuuBoard {
@@ -19,17 +21,19 @@ public:
   static constexpr std::uint8_t MAX_NUM_OF_PIECES_PER_TYPE = 10;
   static constexpr std::uint8_t BOARD_64_OFFSET = 21;
   static constexpr std::uint8_t INVALID_SQUARE_ON_64 = 65;
+  static const std::string STARTING_FEN;
   std::uint16_t current_king_square[2];
   std::uint16_t pieces_on_board[13];
   std::uint16_t non_pawn_pieces[3]; // White, Black and Both Colors.
   std::uint16_t major_pieces[3];    // White, Black and Both Colors.
   std::uint16_t minor_pieces[3];    // White, Black and Both Colors.
-  Undo ply_history[MAX_PLY];
+  BazuuGameState history[MAX_PLY];
   void init_board_squares();
   void init_bit_board();
   void init_piece_list();
   void print_square_layout();
   void print_bit_board(BitBoard bit_board);
+  void setup_fen(const std::string fen_position = STARTING_FEN);
   ZobristKey generate_hash_keys();
   std::uint8_t to_64_board_square(BoardSquares square_on_120_board) const;
   BoardSquares to_120_board_square(std::uint8_t square_on_64_board) const;
@@ -46,5 +50,18 @@ private:
   BoardSquares piece_list[std::to_underlying(Colours::Both)][std::to_underlying(PieceType::Empty)]
                          [MAX_NUM_OF_PIECES_PER_TYPE];
   std::uint8_t piece_count[std::to_underlying(Colours::Both)][std::to_underlying(PieceType::Empty)];
+  void print_bits(U64 n) {
+    unsigned long long i;
+    std::string buf;
+    i = 1UL << (sizeof(n) * CHAR_BIT - 1);
+    while (i > 0) {
+      if (n & i)
+        buf += '1';
+      else
+        buf += '0';
+      i >>= 1;
+    }
+    std::println("{}\n", buf);
+  }
 };
 #endif

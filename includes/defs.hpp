@@ -80,11 +80,4 @@ enum class BoardSquares : std::uint8_t {
 };
 enum class Turn : std::uint8_t { White, Black };
 enum class Castling : std::uint8_t { WhiteShort = 1, WhiteLong = 2, BlackShort = 4, BlackLong = 8 };
-typedef struct {
-  std::uint16_t move;
-  Castling castle_perms;
-  std::uint16_t enPassant_square;
-  std::uint16_t fifty_move_counter;
-  U64 pos_key;
-} Undo;
 #endif

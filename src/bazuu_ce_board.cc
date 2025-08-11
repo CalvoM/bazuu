@@ -3,19 +3,24 @@
 #include <bazuu_ce_board.hpp>
 #include <bit>
 #include <cassert>
+#include <cctype>
+#include <cstddef>
 #include <cstring>
 #include <iomanip>
 #include <iostream>
 #include <memory>
 #include <print>
+#include <string>
 #include <utility>
+
+const std::string BazuuBoard::STARTING_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
 BazuuBoard::BazuuBoard() {
   this->zobrist = std::make_shared<BazuuZobrist>();
   this->zobrist->init();
   this->game_state = std::make_shared<BazuuGameState>();
   this->init_board_squares();
-  this->init_bit_board();
+  this->setup_fen("rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq c6 0 2");
   this->init_piece_list();
   this->generate_hash_keys();
 }
@@ -154,6 +159,146 @@ ZobristKey BazuuBoard::generate_hash_keys() {
   key ^= zobrist->castling_hash(this->game_state->castling);
   // TODO: Add the initialization of the CASTLING, SIDE and ENPASSANT hashes.
   return key;
+}
+
+void BazuuBoard::setup_fen(const std::string fen_position) {
+  std::memset(this->bitboards_for_pieces, 0, sizeof(this->bitboards_for_pieces));
+  std::size_t pos = 0;
+  std::uint8_t rank = 7;
+  std::uint8_t file = 0;
+  char token;
+  std::uint8_t count;
+  PieceType piece = PieceType::Empty;
+  Colours active_side = Colours::Black;
+  BoardSquares square_on_120_board = BoardSquares::NO_SQ;
+  // handle position placement.
+  while (fen_position[pos] != ' ') {
+    token = fen_position[pos++];
+    count = 1;
+    if (token == '/') {
+      rank -= 1;
+      file = 0;
+      count = 0;
+      continue;
+    } else if (std::isdigit(token)) {
+      piece = PieceType::Empty;
+      count = token - '0';
+    } else {
+      switch (token) {
+      case 'p':
+        piece = PieceType::P;
+        active_side = Colours::Black;
+        break;
+      case 'r':
+        piece = PieceType::R;
+        active_side = Colours::Black;
+        break;
+      case 'n':
+        piece = PieceType::N;
+        active_side = Colours::Black;
+        break;
+      case 'b':
+        piece = PieceType::B;
+        active_side = Colours::Black;
+        break;
+      case 'q':
+        piece = PieceType::Q;
+        active_side = Colours::Black;
+        break;
+      case 'k':
+        piece = PieceType::K;
+        active_side = Colours::Black;
+        break;
+      case 'P':
+        piece = PieceType::P;
+        active_side = Colours::White;
+        break;
+      case 'R':
+        piece = PieceType::R;
+        active_side = Colours::White;
+        break;
+      case 'N':
+        piece = PieceType::N;
+        active_side = Colours::White;
+        break;
+      case 'B':
+        piece = PieceType::B;
+        active_side = Colours::White;
+        break;
+      case 'Q':
+        piece = PieceType::Q;
+        active_side = Colours::White;
+        break;
+      case 'K':
+        piece = PieceType::K;
+        active_side = Colours::White;
+        break;
+      default:
+        std::println("Issue encountered: {}", token);
+        // TODO: Better error handling.
+      }
+    }
+    while (count > 0) {
+      if (piece != PieceType::Empty) {
+        square_on_120_board = this->file_rank_to_120_board(static_cast<File>(file), static_cast<Rank>(rank));
+        this->bitboards_for_pieces[std::to_underlying(active_side)][std::to_underlying(piece)] |=
+            1ULL << this->to_64_board_square(square_on_120_board);
+      }
+      count--;
+      file += 1;
+    }
+  }
+
+  this->game_state->active_side = fen_position[++pos] == 'w' ? Colours::White : Colours::Black;
+  pos += 2;
+  while (fen_position[pos] != ' ') {
+    token = fen_position[pos++];
+    switch (token) {
+    case '-':
+      this->game_state->castling |= 0;
+      break;
+    case 'K':
+      this->game_state->castling |= 1;
+      break;
+    case 'Q':
+      this->game_state->castling |= 2;
+      break;
+    case 'k':
+      this->game_state->castling |= 4;
+      break;
+    case 'q':
+      this->game_state->castling |= 8;
+      break;
+    default:
+      break;
+    }
+  }
+  pos++;
+  while (fen_position[pos] != ' ') {
+    token = fen_position[pos++];
+    if (token == '-') {
+      this->game_state->en_passant_square = BoardSquares::NO_SQ;
+    } else if (token > 'a' and token < 'h') {
+      File file = static_cast<File>(token - 'a');
+      Rank rank = static_cast<Rank>(fen_position[pos++] - '1');
+      this->game_state->en_passant_square = this->file_rank_to_120_board(file, rank);
+    }
+  }
+  pos++;
+  std::string half_move = "";
+  while (fen_position[pos] != ' ') {
+    token = fen_position[pos++];
+    half_move += token;
+  }
+  this->game_state->ply_since_pawn_move = std::stoi(half_move);
+  pos += 1;
+  std::string full_move = "";
+  while (pos < fen_position.length()) {
+    token = fen_position[pos++];
+    full_move += token;
+  }
+  this->game_state->total_moves = std::stoi(full_move);
+  return;
 }
 // Maps the (file, rank) to square on the 120 square board.
 BoardSquares BazuuBoard::file_rank_to_120_board(File file, Rank rank) const {
