@@ -122,7 +122,7 @@ void BazuuBoard::init_piece_list() {
       BitBoard bb = this->bitboards_for_pieces[color][piece];
       while (bb) {
         // on the 120 square board the black side has lower index than white side.
-        std::uint8_t square_on_64_board = std::countl_zero(bb);
+        std::uint8_t square_on_64_board = std::countr_zero(bb);
         bb &= bb - 1; // clear the rightmost set bit.
         int idx = this->piece_count[color][piece]++;
         BoardSquares sq = this->to_120_board_square(square_on_64_board);
