@@ -8,7 +8,6 @@
 #include <memory>
 #include <print>
 #include <string>
-#include <string_view>
 #include <utility>
 
 class BazuuBoard {
@@ -29,10 +28,10 @@ public:
   std::uint16_t minor_pieces[3];    // White, Black and Both Colors.
   BazuuGameState history[MAX_PLY];
   void init_board_squares();
-  void init_bit_board();
   void init_piece_list();
   void print_square_layout();
   void print_bit_board(BitBoard bit_board);
+  void print_board();
   void setup_fen(const std::string fen_position = STARTING_FEN);
   ZobristKey generate_hash_keys();
   std::uint8_t to_64_board_square(BoardSquares square_on_120_board) const;

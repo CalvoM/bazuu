@@ -4,6 +4,7 @@
 #include <bit>
 #include <cassert>
 #include <cctype>
+#include <codecvt>
 #include <cstddef>
 #include <cstring>
 #include <iomanip>
@@ -20,9 +21,8 @@ BazuuBoard::BazuuBoard() {
   this->zobrist->init();
   this->game_state = std::make_shared<BazuuGameState>();
   this->init_board_squares();
-  this->setup_fen("rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq c6 0 2");
   this->init_piece_list();
-  this->generate_hash_keys();
+  this->game_state->zobrist_key = this->generate_hash_keys();
 }
 
 // Initializes the two 120 and 64 squares boards.
@@ -40,82 +40,6 @@ void BazuuBoard::init_board_squares() {
       square_on_64_board++;
     }
   }
-}
-void BazuuBoard::init_bit_board() {
-  // White BitBoards
-  BitBoard pieces_bb = 0ULL;
-  for (BoardSquares sq : {BoardSquares::A2, BoardSquares::B2, BoardSquares::C2, BoardSquares::D2, BoardSquares::E2,
-                          BoardSquares::F2, BoardSquares::G2, BoardSquares::H2}) {
-    pieces_bb |= 1ULL << this->to_64_board_square(sq);
-  }
-  this->bitboards_for_pieces[std::to_underlying(Colours::White)][std::to_underlying(PieceType::P)] = pieces_bb;
-
-  pieces_bb = 0ULL;
-  for (BoardSquares sq : {BoardSquares::B1, BoardSquares::G1}) {
-    pieces_bb |= 1ULL << this->to_64_board_square(sq);
-  }
-  this->bitboards_for_pieces[std::to_underlying(Colours::White)][std::to_underlying(PieceType::N)] = pieces_bb;
-
-  pieces_bb = 0ULL;
-  for (BoardSquares sq : {BoardSquares::C1, BoardSquares::F1}) {
-    pieces_bb |= 1ULL << this->to_64_board_square(sq);
-  }
-  this->bitboards_for_pieces[std::to_underlying(Colours::White)][std::to_underlying(PieceType::B)] = pieces_bb;
-
-  pieces_bb = 0ULL;
-  for (BoardSquares sq : {BoardSquares::A1, BoardSquares::H1}) {
-    pieces_bb |= 1ULL << this->to_64_board_square(sq);
-  }
-  this->bitboards_for_pieces[std::to_underlying(Colours::White)][std::to_underlying(PieceType::R)] = pieces_bb;
-
-  this->bitboards_for_pieces[std::to_underlying(Colours::White)][std::to_underlying(PieceType::Q)] =
-      1ULL << this->to_64_board_square(BoardSquares::D1);
-  this->bitboards_for_pieces[std::to_underlying(Colours::White)][std::to_underlying(PieceType::K)] =
-      1ULL << this->to_64_board_square(BoardSquares::E1);
-  this->bitboards_for_sides[std::to_underlying(Colours::White)] =
-      this->bitboards_for_pieces[std::to_underlying(Colours::White)][std::to_underlying(PieceType::P)] |
-      this->bitboards_for_pieces[std::to_underlying(Colours::White)][std::to_underlying(PieceType::N)] |
-      this->bitboards_for_pieces[std::to_underlying(Colours::White)][std::to_underlying(PieceType::B)] |
-      this->bitboards_for_pieces[std::to_underlying(Colours::White)][std::to_underlying(PieceType::R)] |
-      this->bitboards_for_pieces[std::to_underlying(Colours::White)][std::to_underlying(PieceType::Q)] |
-      this->bitboards_for_pieces[std::to_underlying(Colours::White)][std::to_underlying(PieceType::K)];
-  // Black
-  pieces_bb = 0ULL;
-  for (BoardSquares sq : {BoardSquares::A7, BoardSquares::B7, BoardSquares::C7, BoardSquares::D7, BoardSquares::E7,
-                          BoardSquares::F7, BoardSquares::G7, BoardSquares::H7}) {
-    pieces_bb |= 1ULL << this->to_64_board_square(sq);
-  }
-  this->bitboards_for_pieces[std::to_underlying(Colours::Black)][std::to_underlying(PieceType::P)] = pieces_bb;
-
-  pieces_bb = 0ULL;
-  for (BoardSquares sq : {BoardSquares::B8, BoardSquares::G8}) {
-    pieces_bb |= 1ULL << this->to_64_board_square(sq);
-  }
-  this->bitboards_for_pieces[std::to_underlying(Colours::Black)][std::to_underlying(PieceType::N)] = pieces_bb;
-
-  pieces_bb = 0ULL;
-  for (BoardSquares sq : {BoardSquares::C8, BoardSquares::F8}) {
-    pieces_bb |= 1ULL << this->to_64_board_square(sq);
-  }
-  this->bitboards_for_pieces[std::to_underlying(Colours::Black)][std::to_underlying(PieceType::B)] = pieces_bb;
-
-  pieces_bb = 0ULL;
-  for (BoardSquares sq : {BoardSquares::A8, BoardSquares::H8}) {
-    pieces_bb |= 1ULL << this->to_64_board_square(sq);
-  }
-  this->bitboards_for_pieces[std::to_underlying(Colours::Black)][std::to_underlying(PieceType::R)] = pieces_bb;
-
-  this->bitboards_for_pieces[std::to_underlying(Colours::Black)][std::to_underlying(PieceType::Q)] =
-      1ULL << this->to_64_board_square(BoardSquares::D8);
-  this->bitboards_for_pieces[std::to_underlying(Colours::Black)][std::to_underlying(PieceType::K)] =
-      1ULL << this->to_64_board_square(BoardSquares::E8);
-  this->bitboards_for_sides[std::to_underlying(Colours::Black)] =
-      this->bitboards_for_pieces[std::to_underlying(Colours::Black)][std::to_underlying(PieceType::P)] |
-      this->bitboards_for_pieces[std::to_underlying(Colours::Black)][std::to_underlying(PieceType::N)] |
-      this->bitboards_for_pieces[std::to_underlying(Colours::Black)][std::to_underlying(PieceType::B)] |
-      this->bitboards_for_pieces[std::to_underlying(Colours::Black)][std::to_underlying(PieceType::R)] |
-      this->bitboards_for_pieces[std::to_underlying(Colours::Black)][std::to_underlying(PieceType::Q)] |
-      this->bitboards_for_pieces[std::to_underlying(Colours::Black)][std::to_underlying(PieceType::K)];
 }
 
 void BazuuBoard::init_piece_list() {
@@ -147,17 +71,23 @@ ZobristKey BazuuBoard::generate_hash_keys() {
         bb &= bb - 1; // clear the rightmost set bit.
         BoardSquares square = this->to_120_board_square(square_on_64_board);
         key ^= zobrist->piece_hash(Colours(color), PieceType(piece), square);
+        std::println("->{}", key);
       }
     }
   }
+  std::println("->>{}", key);
   // Update key with side_hash_key
   key ^= zobrist->side_hash(this->game_state->active_side);
+  std::println("->>>{}", key);
   // Update key with enpassant_hash_key
-  key ^= zobrist->enpassant_hash(this->game_state->en_passant_square);
+  if (this->game_state->en_passant_square != BoardSquares::NO_SQ) {
+    key ^= zobrist->enpassant_hash(this->game_state->en_passant_square);
+  }
+  std::println("->>>>{}", key);
   // Update key with castling_hash_key
   assert(this->game_state->castling < 16);
   key ^= zobrist->castling_hash(this->game_state->castling);
-  // TODO: Add the initialization of the CASTLING, SIDE and ENPASSANT hashes.
+  std::println("->>>>>{}", key);
   return key;
 }
 
@@ -298,6 +228,8 @@ void BazuuBoard::setup_fen(const std::string fen_position) {
     full_move += token;
   }
   this->game_state->total_moves = std::stoi(full_move);
+  this->init_piece_list();
+  this->game_state->zobrist_key = this->generate_hash_keys();
   return;
 }
 // Maps the (file, rank) to square on the 120 square board.
@@ -349,6 +281,47 @@ void BazuuBoard::print_bit_board(BitBoard bit_board) {
     std::println();
   }
   std::println("\n");
+}
+
+void BazuuBoard::print_board() {
+  BoardSquares square_on_120_board = BoardSquares::A1;
+  uint8_t square_on_64_board = 0;
+  const char *piece_char = ".";
+  bool piece_found = false;
+
+  for (int rank = std::to_underlying(Rank::R8); rank >= std::to_underlying(Rank::R1); --rank) {
+    std::print("\x1b[1;34m{}\x1b[0m  ", rank + 1);
+    for (int file = std::to_underlying(File::A); file <= std::to_underlying(File::H); ++file) {
+      square_on_120_board = this->file_rank_to_120_board(static_cast<File>(file), static_cast<Rank>(rank));
+      square_on_64_board = this->sq_120_to_sq_64[std::to_underlying(square_on_120_board)];
+      piece_char = ".";
+      piece_found = false;
+      for (int color = std::to_underlying(Colours::White); color < std::to_underlying(Colours::Both); color++) {
+        for (int piece = std::to_underlying(PieceType::P); piece < std::to_underlying(PieceType::Empty); piece++) {
+          if (this->bitboards_for_pieces[color][piece] & (1ULL << square_on_64_board)) {
+            piece_char = PieceChars[color][piece];
+
+            std::print("{} ", piece_char);
+            piece_found = true;
+          }
+        }
+      }
+      if (!piece_found) {
+        std::print("{} ", piece_char);
+      }
+    }
+    std::println();
+  }
+  std::print("   ");
+  for (int file = std::to_underlying(File::A); file <= std::to_underlying(File::H); ++file) {
+    std::print("\x1b[1;31m{} ", char('a' + file));
+  }
+  std::println("\x1b[0m\n");
+  std::println("\e[0;32m Side to play\x1b[0m: \e[4;32m{}\x1b[0m:",
+               ActiveSideRep[std::to_underlying(this->game_state->active_side)]);
+  std::println("\e[0;32m En-Passant Target:\x1b[0m: \e[4;32m{}\x1b[0m:",
+               std::to_underlying(this->game_state->en_passant_square));
+  std::println("\e[0;32m Hash Key of the position:\x1b[0m: \e[4;32m{}\x1b[0m:", this->game_state->zobrist_key);
 }
 void BazuuBoard::reset() {
   // Possibly in reverse order of setting up/initializing.

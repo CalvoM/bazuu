@@ -1,6 +1,9 @@
 #ifndef DEFS_H_
 #define DEFS_H_
+#include <array>
+#include <atomic>
 #include <cstdint>
+#include <utility>
 using U64 = unsigned long long;
 using BitBoard = U64;
 using CastlePermissions = std::uint8_t;
@@ -8,9 +11,12 @@ using ZobristKey = U64;
 
 enum class Pieces : std::uint8_t { Empty, wP, wN, wB, wR, wQ, wK, bP, bN, bB, bR, bQ, bK };
 enum class PieceType : std::uint8_t { P, N, B, R, Q, K, Empty };
+constexpr const char *PieceChars[2][std::to_underlying(PieceType::Empty)] = {{"♟", "♞", "♝", "♜", "♛", "♚"},
+                                                                             {"♙", "♘", "♗", "♖", "♕", "♔"}};
 enum class File : std::uint8_t { A, B, C, D, E, F, G, H, NONE };
 enum class Rank : std::uint8_t { R1, R2, R3, R4, R5, R6, R7, R8, NONE };
 enum class Colours : std::uint8_t { White, Black, Both };
+constexpr char ActiveSideRep[4] = "wb-";
 enum class BoardSquares : std::uint8_t {
   A1 = 21,
   B1,
