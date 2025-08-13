@@ -67,27 +67,22 @@ ZobristKey BazuuBoard::generate_hash_keys() {
     for (int piece = std::to_underlying(PieceType::P); piece < std::to_underlying(PieceType::Empty); piece++) {
       BitBoard bb = this->bitboards_for_pieces[color][piece];
       while (bb) {
-        std::uint8_t square_on_64_board = std::countl_zero(bb);
+        std::uint8_t square_on_64_board = std::countr_zero(bb);
         bb &= bb - 1; // clear the rightmost set bit.
         BoardSquares square = this->to_120_board_square(square_on_64_board);
         key ^= zobrist->piece_hash(Colours(color), PieceType(piece), square);
-        std::println("->{}", key);
       }
     }
   }
-  std::println("->>{}", key);
   // Update key with side_hash_key
   key ^= zobrist->side_hash(this->game_state->active_side);
-  std::println("->>>{}", key);
   // Update key with enpassant_hash_key
   if (this->game_state->en_passant_square != BoardSquares::NO_SQ) {
     key ^= zobrist->enpassant_hash(this->game_state->en_passant_square);
   }
-  std::println("->>>>{}", key);
   // Update key with castling_hash_key
   assert(this->game_state->castling < 16);
   key ^= zobrist->castling_hash(this->game_state->castling);
-  std::println("->>>>>{}", key);
   return key;
 }
 
