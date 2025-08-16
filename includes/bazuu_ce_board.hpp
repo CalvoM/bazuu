@@ -28,7 +28,7 @@ public:
   std::uint16_t minor_pieces[3];    // White, Black and Both Colors.
   BazuuGameState history[MAX_PLY];
   void init_board_squares();
-  void init_piece_list();
+  void update_piece_list();
   void print_square_layout();
   void print_bit_board(BitBoard bit_board);
   void print_board();
@@ -37,6 +37,11 @@ public:
   std::uint8_t to_64_board_square(BoardSquares square_on_120_board) const;
   BoardSquares to_120_board_square(std::uint8_t square_on_64_board) const;
   BoardSquares file_rank_to_120_board(File file, Rank rank) const;
+  BitBoard get_bitboard_of_piece(PieceType piece, Colours colour);
+  BitBoard occupancy() const;
+  BoardSquares king_square(Colours colour) const;
+  bool has_bishop_pair(Colours colour);
+  std::pair<File, Rank> get_file_and_rank(BoardSquares square_on_120_board) const;
   void reset();
 
 private:
@@ -49,6 +54,7 @@ private:
   BoardSquares piece_list[std::to_underlying(Colours::Both)][std::to_underlying(PieceType::Empty)]
                          [MAX_NUM_OF_PIECES_PER_TYPE];
   std::uint8_t piece_count[std::to_underlying(Colours::Both)][std::to_underlying(PieceType::Empty)];
+  std::pair<File, Rank> file_rank_to_board_mapper[BRD_SQ_NUM];
   void print_bits(U64 n) {
     unsigned long long i;
     std::string buf;

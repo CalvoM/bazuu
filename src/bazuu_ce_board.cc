@@ -1,10 +1,10 @@
 #include "bazuu_ce_zobrist.hpp"
 #include "defs.hpp"
+#include <algorithm>
 #include <bazuu_ce_board.hpp>
 #include <bit>
 #include <cassert>
 #include <cctype>
-#include <codecvt>
 #include <cstddef>
 #include <cstring>
 #include <iomanip>
@@ -21,13 +21,14 @@ BazuuBoard::BazuuBoard() {
   this->zobrist->init();
   this->game_state = std::make_shared<BazuuGameState>();
   this->init_board_squares();
-  this->init_piece_list();
   this->game_state->zobrist_key = this->generate_hash_keys();
 }
 
 // Initializes the two 120 and 64 squares boards.
 // Creates the mapping between the two boards.
 void BazuuBoard::init_board_squares() {
+  std::fill(std::begin(this->file_rank_to_board_mapper), std::end(this->file_rank_to_board_mapper),
+            std::make_pair(File::NONE, Rank::NONE));
   BoardSquares square_on_120_board = BoardSquares::A1;
   uint8_t square_on_64_board = 0;
   std::memset(this->sq_120_to_sq_64, this->INVALID_SQUARE_ON_64, sizeof(this->sq_120_to_sq_64));
@@ -35,6 +36,8 @@ void BazuuBoard::init_board_squares() {
   for (int rank = std::to_underlying(Rank::R1); rank <= std::to_underlying(Rank::R8); ++rank) {
     for (int file = std::to_underlying(File::A); file <= std::to_underlying(File::H); ++file) {
       square_on_120_board = this->file_rank_to_120_board(static_cast<File>(file), static_cast<Rank>(rank));
+      file_rank_to_board_mapper[std::to_underlying(square_on_120_board)] = {static_cast<File>(file),
+                                                                            static_cast<Rank>(rank)};
       this->sq_64_to_sq_120[square_on_64_board] = square_on_120_board;
       this->sq_120_to_sq_64[std::to_underlying(square_on_120_board)] = square_on_64_board;
       square_on_64_board++;
@@ -42,7 +45,7 @@ void BazuuBoard::init_board_squares() {
   }
 }
 
-void BazuuBoard::init_piece_list() {
+void BazuuBoard::update_piece_list() {
   // Let us clear the piece counts.
   std::memset(this->piece_list, std::to_underlying(BoardSquares::NO_SQ), sizeof(this->piece_list));
   std::memset(this->piece_count, 0, sizeof(this->piece_count));
@@ -223,7 +226,7 @@ void BazuuBoard::setup_fen(const std::string fen_position) {
     full_move += token;
   }
   this->game_state->total_moves = std::stoi(full_move);
-  this->init_piece_list();
+  this->update_piece_list();
   this->game_state->zobrist_key = this->generate_hash_keys();
   return;
 }
@@ -317,6 +320,22 @@ void BazuuBoard::print_board() {
   std::println("\e[0;32m En-Passant Target:\x1b[0m: \e[4;32m{}\x1b[0m:",
                std::to_underlying(this->game_state->en_passant_square));
   std::println("\e[0;32m Hash Key of the position:\x1b[0m: \e[4;32m{}\x1b[0m:", this->game_state->zobrist_key);
+}
+
+BitBoard BazuuBoard::get_bitboard_of_piece(PieceType piece, Colours colour) {
+  return this->bitboards_for_pieces[std::to_underlying(colour)][std::to_underlying(piece)];
+}
+BitBoard BazuuBoard::occupancy() const {
+  return this->bitboards_for_sides[std::to_underlying(Colours::White)] |
+         this->bitboards_for_sides[std::to_underlying(Colours::Black)];
+}
+BoardSquares BazuuBoard::king_square(Colours colour) const {
+  BitBoard king_bb = this->bitboards_for_pieces[std::to_underlying(colour)][std::to_underlying(PieceType::K)];
+  std::uint8_t square_on_64_board = std::countr_zero(king_bb);
+  return this->to_120_board_square(square_on_64_board);
+}
+std::pair<File, Rank> BazuuBoard::get_file_and_rank(BoardSquares square_on_120_board) const {
+  return this->file_rank_to_board_mapper[std::to_underlying(square_on_120_board)];
 }
 void BazuuBoard::reset() {
   // Possibly in reverse order of setting up/initializing.
