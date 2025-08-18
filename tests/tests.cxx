@@ -1,9 +1,5 @@
 #include <bazuu_ce_board.hpp>
 #include <catch2/catch_test_macros.hpp>
-#include <quill/Backend.h>
-#include <quill/Frontend.h>
-#include <quill/Logger.h>
-#include <quill/sinks/ConsoleSink.h>
 
 TEST_CASE("BazuuBoard can convert file/rank to square on 120 board", "[file_rank_to_120_board]") {
   BazuuBoard board;

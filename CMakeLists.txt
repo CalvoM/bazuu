@@ -11,19 +11,11 @@ set(CMAKE_INSTALL_PREFIX "/usr/local/include")
 set(CMAKE_CONFIGURATION_TYPES "Debug")
 set(CMAKE_BUILD_TYPE "Debug")
 
-# find_package(quill REQUIRED)
-FetchContent_Declare(
-  quill
-  GIT_REPOSITORY "https://github.com/odygrd/quill"
-  GIT_TAG a29940ebe1122556fa6d99be1929264469d6ec99 # v10.0.1
-)
-FetchContent_MakeAvailable(quill)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/includes/)
 
 # configure the lib from src/*.cc
 file(GLOB SOURCES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/src/*.cc)
 add_library(${PROJECT_NAME}_lib ${SOURCES})
-target_link_libraries(${PROJECT_NAME}_lib PUBLIC quill::quill)
 target_include_directories(${PROJECT_NAME}_lib
                            PUBLIC ${CMAKE_SOURCE_DIR}/includes)
 
