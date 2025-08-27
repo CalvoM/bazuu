@@ -16,16 +16,8 @@ int main() {
   std::println();
   board.setup_fen("rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2");
   board.print_board();
-  for (int square = std::to_underlying(BoardSquares::A1) - 21; square < 120; square++) {
-    auto file_rank = board.get_file_and_rank(static_cast<BoardSquares>(square));
-    if (square % 10 == 0 and square != 0)
-      std::println();
-    if (file_rank.first == File::NONE) {
-      std::print("\e[0;32m(-|-)\x1b[0m ");
-
-    } else {
-      std::print("({},{}) ", std::to_underlying(file_rank.first), std::to_underlying(file_rank.second));
-    }
-  }
+  std::println();
+  board.setup_fen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
+  board.print_board();
   return 0;
 }
