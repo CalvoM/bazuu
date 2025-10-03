@@ -24,8 +24,10 @@ BazuuBoard::BazuuBoard() {
   this->game_state->zobrist_key = this->generate_hash_keys();
 }
 
-// Initializes the two 120 and 64 squares boards.
-// Creates the mapping between the two boards.
+/*
+ * Initializes the two 120 and 64 squares boards.
+ * Creates the mapping between the two boards.
+ */
 void BazuuBoard::init_board_squares() {
   std::fill(std::begin(this->file_rank_to_board_mapper), std::end(this->file_rank_to_board_mapper),
             std::make_pair(File::NONE, Rank::NONE));
@@ -45,6 +47,9 @@ void BazuuBoard::init_board_squares() {
   }
 }
 
+/*
+ * Clears and updates the board piece list.
+ */
 void BazuuBoard::update_piece_list() {
   // Let us clear the piece counts.
   std::memset(this->piece_list, std::to_underlying(BoardSquares::NO_SQ), sizeof(this->piece_list));
@@ -64,6 +69,10 @@ void BazuuBoard::update_piece_list() {
   }
 }
 
+/*
+ * Generate hash keys using mersenne twister.
+ * @return zobrist hash key.
+ */
 ZobristKey BazuuBoard::generate_hash_keys() {
   ZobristKey key = 0ULL;
   for (int color = std::to_underlying(Colours::White); color < std::to_underlying(Colours::Both); color++) {
@@ -89,6 +98,10 @@ ZobristKey BazuuBoard::generate_hash_keys() {
   return key;
 }
 
+/*
+ * Set up chess board from FEN position provided.
+ * @param fen_position FEN position of the board.
+ */
 void BazuuBoard::setup_fen(const std::string fen_position) {
   std::memset(this->bitboards_for_pieces, 0, sizeof(this->bitboards_for_pieces));
   std::size_t pos = 0;
@@ -230,21 +243,38 @@ void BazuuBoard::setup_fen(const std::string fen_position) {
   this->game_state->zobrist_key = this->generate_hash_keys();
   return;
 }
-// Maps the (file, rank) to square on the 120 square board.
+/*
+ * Maps the (file, rank) to square on the 120 square board.
+ * @param chess File
+ * @param chess Rank
+ * @return BoardSquare on the 120 square board.
+ */
 BoardSquares BazuuBoard::file_rank_to_120_board(File file, Rank rank) const {
   return static_cast<BoardSquares>((this->BOARD_64_OFFSET + std::to_underlying(file)) +
                                    (std::to_underlying(rank) * 10));
 }
 
-// Maps the square on a 120 square board to index on the main 64 square chess board.
+/*
+ * Maps the square on a 120 square board to index on the main 64 square chess board.
+ * @param square_on_120_board square from the 120 square board.
+ * @return index of square on the 64 square board.
+ */
 std::uint8_t BazuuBoard::to_64_board_square(BoardSquares square_on_120_board) const {
   return unsigned(this->sq_120_to_sq_64[std::to_underlying(square_on_120_board)]);
 }
+
+/*
+ * Maps the index of the square on the 64 square board to 120 square board.
+ * @param index of the square on the 64 square board.
+ * @return square on the 120 square board.
+ */
 BoardSquares BazuuBoard::to_120_board_square(std::uint8_t square_on_64_board) const {
   return this->sq_64_to_sq_120[square_on_64_board];
 }
 
-// Prints the 2 boards - 120 square board and 64 square board.
+/*
+ * Prints the 2 boards - 120 square board and 64 square board.
+ */
 void BazuuBoard::print_square_layout() {
   for (int i = 0; i < BRD_SQ_NUM; i++) {
     if (i % 10 == 0) {
@@ -262,6 +292,11 @@ void BazuuBoard::print_square_layout() {
   }
   std::println("\n");
 }
+
+/*
+ * Prints the bit board provided.
+ * @param bit_board to be printed.
+ */
 void BazuuBoard::print_bit_board(BitBoard bit_board) {
   BoardSquares square_on_120_board = BoardSquares::A1;
   uint8_t square_on_64_board = 0;
@@ -281,6 +316,9 @@ void BazuuBoard::print_bit_board(BitBoard bit_board) {
   std::println("\n");
 }
 
+/*
+ * Prints the current state of the board.
+ */
 void BazuuBoard::print_board() {
   BoardSquares square_on_120_board = BoardSquares::A1;
   uint8_t square_on_64_board = 0;
@@ -322,21 +360,46 @@ void BazuuBoard::print_board() {
   std::println("\e[0;32m Hash Key of the position:\x1b[0m: \e[4;32m{}\x1b[0m:", this->game_state->zobrist_key);
 }
 
+/*
+ * Get the bitboard of the a specific piece type of either color.
+ * @param piece - The chess piece type.
+ * @param colour - Specifies the colour of the piece type.
+ * @return the bitboard.
+ */
 BitBoard BazuuBoard::get_bitboard_of_piece(PieceType piece, Colours colour) {
   return this->bitboards_for_pieces[std::to_underlying(colour)][std::to_underlying(piece)];
 }
+
+/*
+ * Get the bitboard of all the pieces on the board, both sides/colors.
+ */
 BitBoard BazuuBoard::occupancy() const {
   return this->bitboards_for_sides[std::to_underlying(Colours::White)] |
          this->bitboards_for_sides[std::to_underlying(Colours::Black)];
 }
+
+/*
+ * Get the board square on the king piece of a given side/colour.
+ * @param colour - the side/colour of the king.
+ */
 BoardSquares BazuuBoard::king_square(Colours colour) const {
   BitBoard king_bb = this->bitboards_for_pieces[std::to_underlying(colour)][std::to_underlying(PieceType::K)];
   std::uint8_t square_on_64_board = std::countr_zero(king_bb);
   return this->to_120_board_square(square_on_64_board);
 }
+
+/*
+ * Get the file and rank of a give board square on a 120 square board.
+ * @param square_on_120_board board square on the 120 square board.
+ * @return the file and rank of board square provided.
+ */
 std::pair<File, Rank> BazuuBoard::get_file_and_rank(BoardSquares square_on_120_board) const {
   return this->file_rank_to_board_mapper[std::to_underlying(square_on_120_board)];
 }
+
+/*
+ * Reset the chess board.
+ */
 void BazuuBoard::reset() {
   // Possibly in reverse order of setting up/initializing.
   this->game_state->reset();

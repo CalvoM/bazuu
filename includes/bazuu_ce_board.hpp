@@ -17,6 +17,8 @@ public:
   static constexpr std::string VERSION = "1.0.0";
   static constexpr std::uint8_t BRD_SQ_NUM = 120;
   static constexpr std::uint16_t MAX_PLY = 2048;
+  // Each piece type has a maximum number of 10 pieces i.e. the initial
+  // two pieces plus 8 possible pawns that can be promoted.
   static constexpr std::uint8_t MAX_NUM_OF_PIECES_PER_TYPE = 10;
   static constexpr std::uint8_t BOARD_64_OFFSET = 21;
   static constexpr std::uint8_t INVALID_SQUARE_ON_64 = 65;
