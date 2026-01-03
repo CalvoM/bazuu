@@ -23,13 +23,29 @@ public:
   static constexpr std::uint8_t BOARD_64_OFFSET = 21;
   static constexpr std::uint8_t INVALID_SQUARE_ON_64 = 65;
   static const std::string STARTING_FEN;
+  static constexpr U64 A_FILE = 0x0101010101010101;
+  static constexpr U64 H_FILE = 0x8080808080808080;
+  static constexpr U64 RANK_1 = 0x00000000000000FF;
+  static constexpr U64 RANK_8 = 0xFF00000000000000;
+  static constexpr U64 A1_H8_DIAG = 0x8040201008040201;
+  static constexpr U64 H1_A8_DIAG = 0x0102040810204080;
+  static constexpr U64 LIGHT_SQUARE = 0x55AA55AA55AA55AA;
+  static constexpr U64 DARK_SQUARE = 0xAA55AA55AA55AA55;
+  static constexpr U64 NOT_A_FILE = 0xfefefefefefefefe; // ~0x0101010101010101
+  static constexpr U64 NOT_H_FILE = 0x7f7f7f7f7f7f7f7f; // ~0x8080808080808080
+  static constexpr U64 NOT_AB_FILES = 0xfcfcfcfcfcfcfcfc;
+  static constexpr U64 NOT_GH_FILES = 0x3f3f3f3f3f3f3f3f;
   std::uint16_t current_king_square[2];
   std::uint16_t pieces_on_board[13];
   std::uint16_t non_pawn_pieces[3]; // White, Black and Both Colors.
   std::uint16_t major_pieces[3];    // White, Black and Both Colors.
   std::uint16_t minor_pieces[3];    // White, Black and Both Colors.
   BazuuGameState history[MAX_PLY];
+  BitBoard knight_attacks[std::to_underlying(BoardSquares::NO_SQ)];
+  BitBoard king_attacks[std::to_underlying(BoardSquares::NO_SQ)];
+  BitBoard pawn_attacks[std::to_underlying(BoardSquares::NO_SQ)];
   void init_board_squares();
+  void init_non_sliding_attacks();
   void update_piece_list();
   void print_square_layout();
   void print_bit_board(BitBoard bit_board);
@@ -41,6 +57,8 @@ public:
   BoardSquares file_rank_to_120_board(File file, Rank rank) const;
   BitBoard get_bitboard_of_piece(PieceType piece, Colours colour);
   BitBoard occupancy() const;
+  BitBoard get_knight_attacks(BoardSquares square_on_120_board) const;
+  BitBoard get_king_attacks(BoardSquares square_on_120_board) const;
   BoardSquares king_square(Colours colour) const;
   bool has_bishop_pair(Colours colour);
   std::pair<File, Rank> get_file_and_rank(BoardSquares square_on_120_board) const;
@@ -57,6 +75,9 @@ private:
                          [MAX_NUM_OF_PIECES_PER_TYPE];
   std::uint8_t piece_count[std::to_underlying(Colours::Both)][std::to_underlying(PieceType::Empty)];
   std::pair<File, Rank> file_rank_to_board_mapper[BRD_SQ_NUM];
+  BitBoard mask_knight_attacks(BoardSquares square_on_120_board);
+  BitBoard mask_king_attacks(BoardSquares square_on_120_board);
+  BitBoard mask_pawn_attacks(BoardSquares square_on_120_board);
   void print_bits(U64 n) {
     unsigned long long i;
     std::string buf;

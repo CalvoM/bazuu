@@ -15,6 +15,16 @@
 #include <utility>
 
 const std::string BazuuBoard::STARTING_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+const U64 A_FILE = 0x0101010101010101;
+const U64 H_FILE = 0x8080808080808080;
+const U64 RANK_1 = 0x00000000000000FF;
+const U64 RANK_8 = 0xFF00000000000000;
+const U64 A1_H8_DIAG = 0x8040201008040201;
+const U64 H1_A8_DIAG = 0x0102040810204080;
+const U64 LIGHT_SQUARE = 0x55AA55AA55AA55AA;
+const U64 DARK_SQUARE = 0xAA55AA55AA55AA55;
+const U64 NOT_A_FILE = 0xfefefefefefefefe; // ~0x0101010101010101
+const U64 NOT_H_FILE = 0x7f7f7f7f7f7f7f7f; // ~0x8080808080808080
 
 BazuuBoard::BazuuBoard() {
   this->zobrist = std::make_shared<BazuuZobrist>();
@@ -22,6 +32,7 @@ BazuuBoard::BazuuBoard() {
   this->game_state = std::make_shared<BazuuGameState>();
   this->init_board_squares();
   this->game_state->zobrist_key = this->generate_hash_keys();
+  this->init_non_sliding_attacks();
 }
 
 /*
@@ -47,6 +58,16 @@ void BazuuBoard::init_board_squares() {
   }
 }
 
+/*
+ * Initialize the attack bitboards and masks for non sliding pieces e.g. K, N and P
+ */
+void BazuuBoard::init_non_sliding_attacks() {
+  for (std ::uint8_t square_on_64_board = 0; square_on_64_board < this->INVALID_SQUARE_ON_64; square_on_64_board++) {
+    BoardSquares square_on_120_board = to_120_board_square(square_on_64_board);
+    this->knight_attacks[std::to_underlying(square_on_120_board)] = this->mask_knight_attacks(square_on_120_board);
+    this->king_attacks[std::to_underlying(square_on_120_board)] = this->mask_king_attacks(square_on_120_board);
+  }
+}
 /*
  * Clears and updates the board piece list.
  */
@@ -180,6 +201,7 @@ void BazuuBoard::setup_fen(const std::string fen_position) {
       }
     }
     while (count > 0) {
+      // If count is >0, then update the pieces according to the replacement number.
       if (piece != PieceType::Empty) {
         square_on_120_board = this->file_rank_to_120_board(static_cast<File>(file), static_cast<Rank>(rank));
         this->bitboards_for_pieces[std::to_underlying(active_side)][std::to_underlying(piece)] |=
@@ -397,6 +419,68 @@ std::pair<File, Rank> BazuuBoard::get_file_and_rank(BoardSquares square_on_120_b
   return this->file_rank_to_board_mapper[std::to_underlying(square_on_120_board)];
 }
 
+/*
+ * Compute the attack bitboards for a knight on a given square.
+ * @param square_on_120_board board square on the 120 square board.
+ * @return the bitboard of the knight attacks of a given board square provided.
+ */
+BitBoard BazuuBoard::mask_knight_attacks(BoardSquares square_on_120_board) {
+  std::uint8_t square_on_64_board = to_64_board_square(square_on_120_board);
+  BitBoard knight_pos = 1ULL << square_on_64_board;
+  BitBoard attacks = knight_pos;
+  // Front
+  attacks |= knight_pos << 17 & this->NOT_A_FILE;
+  attacks |= knight_pos << 15 & this->NOT_H_FILE;
+  attacks |= knight_pos << 10 & this->NOT_AB_FILES;
+  attacks |= knight_pos << 6 & this->NOT_GH_FILES;
+  // Back
+  attacks |= knight_pos >> 17 & this->NOT_H_FILE;
+  attacks |= knight_pos >> 15 & this->NOT_A_FILE;
+  attacks |= knight_pos >> 10 & this->NOT_GH_FILES;
+  attacks |= knight_pos >> 6 & this->NOT_AB_FILES;
+  return attacks;
+}
+
+/*
+ * Compute the attack bitboards for a king on a given square.
+ * @param square_on_120_board board square on the 120 square board.
+ * @return the bitboard of the king attacks of a given board square provided.
+ */
+BitBoard BazuuBoard::mask_king_attacks(BoardSquares square_on_120_board) {
+  std::uint8_t square_on_64_board = to_64_board_square(square_on_120_board);
+  BitBoard king_pos = 1ULL << square_on_64_board;
+  BitBoard attacks = king_pos;
+  // Front
+  attacks |= king_pos << 7 & this->NOT_H_FILE;
+  attacks |= king_pos << 8;
+  attacks |= king_pos << 9 & this->NOT_A_FILE;
+  // Side
+  attacks |= king_pos << 1 & this->NOT_A_FILE;
+  attacks |= king_pos >> 1 & this->NOT_H_FILE;
+  // Back
+  attacks |= king_pos >> 7 & this->NOT_A_FILE;
+  attacks |= king_pos >> 8;
+  attacks |= king_pos >> 9 & this->NOT_H_FILE;
+  return attacks;
+}
+
+/*
+ * Get the knight attacks bit board for a given board square.
+ * @param square_on_120_board board square on the 120 square board.
+ * @return the bitboard of the knight attacks of a given board square provided.
+ */
+BitBoard BazuuBoard::get_knight_attacks(BoardSquares square_on_120_board) const {
+  return this->knight_attacks[std::to_underlying(square_on_120_board)];
+}
+
+/*
+ * Get the king attacks bit board for a given board square.
+ * @param square_on_120_board board square on the 120 square board.
+ * @return the bitboard of the king attacks of a given board square provided.
+ */
+BitBoard BazuuBoard::get_king_attacks(BoardSquares square_on_120_board) const {
+  return this->king_attacks[std::to_underlying(square_on_120_board)];
+}
 /*
  * Reset the chess board.
  */
