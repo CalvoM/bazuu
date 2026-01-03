@@ -86,4 +86,31 @@ enum class BoardSquares : std::uint8_t {
 };
 enum class Turn : std::uint8_t { White, Black };
 enum class Castling : std::uint8_t { WhiteShort = 1, WhiteLong = 2, BlackShort = 4, BlackLong = 8 };
+
+// LERF mapping
+/*
+ 8  ♖ ♘ ♗ ♕ ♔ ♗ ♘ ♖
+ 7  ♙ ♙ ♙ ♙ ♙ ♙ ♙ ♙
+ 6  . . . . . . . .
+ 5  . . . . . . . .
+ 4  . . . . . . . .
+ 3  . . . . . . . .
+ 2  ♟ ♟ ♟ ♟ ♟ ♟ ♟ ♟
+ 1  ♜ ♞ ♝ ♛ ♚ ♝ ♞ ♜
+    a b c d e f g h
+*/
+
+// LERF ROSE COMPASS
+/*
+ northwest    north   northeast
+ noWe         nort         noEa
+         +7    +8    +9
+             \  |  /
+ west    -1 <-  0 -> +1    east
+             /  |  \
+         -9    -8    -7
+ soWe         sout         soEa
+ southwest    south   southeast
+*/
+
 #endif
