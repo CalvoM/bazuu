@@ -43,7 +43,9 @@ public:
   BazuuGameState history[MAX_PLY];
   BitBoard knight_attacks[std::to_underlying(BoardSquares::NO_SQ)];
   BitBoard king_attacks[std::to_underlying(BoardSquares::NO_SQ)];
-  BitBoard pawn_attacks[std::to_underlying(BoardSquares::NO_SQ)];
+  BitBoard pawn_attacks[std::to_underlying(Colours::Both)][std::to_underlying(BoardSquares::NO_SQ)];
+  BitBoard bishop_attacks[std::to_underlying(BoardSquares::NO_SQ)];
+  BitBoard rook_attacks[std::to_underlying(BoardSquares::NO_SQ)];
   void init_board_squares();
   void init_non_sliding_attacks();
   void update_piece_list();
@@ -59,6 +61,11 @@ public:
   BitBoard occupancy() const;
   BitBoard get_knight_attacks(BoardSquares square_on_120_board) const;
   BitBoard get_king_attacks(BoardSquares square_on_120_board) const;
+  BitBoard get_pawn_attacks(Colours side, BoardSquares square_on_120_board) const;
+  BitBoard get_bishop_attacks(BoardSquares square_on_120_board) const;
+  BitBoard get_rook_attacks(BoardSquares square_on_120_board) const;
+  BitBoard mask_bishop_attacks_realtime(BoardSquares square_on_120_board, BitBoard block);
+  BitBoard mask_rook_attacks_realtime(BoardSquares square_on_120_board, BitBoard block);
   BoardSquares king_square(Colours colour) const;
   bool has_bishop_pair(Colours colour);
   std::pair<File, Rank> get_file_and_rank(BoardSquares square_on_120_board) const;
@@ -77,7 +84,9 @@ private:
   std::pair<File, Rank> file_rank_to_board_mapper[BRD_SQ_NUM];
   BitBoard mask_knight_attacks(BoardSquares square_on_120_board);
   BitBoard mask_king_attacks(BoardSquares square_on_120_board);
-  BitBoard mask_pawn_attacks(BoardSquares square_on_120_board);
+  BitBoard mask_pawn_attacks(Colours side, BoardSquares square_on_120_board);
+  BitBoard mask_bishop_attacks(BoardSquares square_on_120_board);
+  BitBoard mask_rook_attacks(BoardSquares square_on_120_board);
   void print_bits(U64 n) {
     unsigned long long i;
     std::string buf;
