@@ -12,6 +12,7 @@
 #include <memory>
 #include <print>
 #include <string>
+#include <tuple>
 #include <utility>
 
 const std::string BazuuBoard::STARTING_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -66,6 +67,10 @@ void BazuuBoard::init_non_sliding_attacks() {
     BoardSquares square_on_120_board = to_120_board_square(square_on_64_board);
     this->knight_attacks[std::to_underlying(square_on_120_board)] = this->mask_knight_attacks(square_on_120_board);
     this->king_attacks[std::to_underlying(square_on_120_board)] = this->mask_king_attacks(square_on_120_board);
+    this->pawn_attacks[std::to_underlying(Colours::White)][std::to_underlying(square_on_120_board)] =
+        this->mask_pawn_attacks(Colours::White, square_on_120_board);
+    this->pawn_attacks[std::to_underlying(Colours::Black)][std::to_underlying(square_on_120_board)] =
+        this->mask_pawn_attacks(Colours::Black, square_on_120_board);
   }
 }
 /*
@@ -465,6 +470,165 @@ BitBoard BazuuBoard::mask_king_attacks(BoardSquares square_on_120_board) {
 }
 
 /*
+ * Compute the attack bitboards for a pawn on a given square.
+ * This does not compute the push/double push.
+ * @param square_on_120_board board square on the 120 square board.
+ * @return the bitboard of the pawn attacks of a given board square provided.
+ */
+BitBoard BazuuBoard::mask_pawn_attacks(Colours side, BoardSquares square_on_120_board) {
+  std::uint8_t square_on_64_board = to_64_board_square(square_on_120_board);
+  BitBoard pawn_pos = 1ULL << square_on_64_board;
+  BitBoard attacks = pawn_pos;
+  if (side == Colours::White) {
+    attacks |= pawn_pos << 7 & this->NOT_H_FILE;
+    attacks |= pawn_pos << 9 & this->NOT_A_FILE;
+  } else if (side == Colours::Black) {
+    attacks |= pawn_pos >> 7 & this->NOT_A_FILE;
+    attacks |= pawn_pos >> 9 & this->NOT_H_FILE;
+  }
+  return attacks;
+}
+
+/*
+ * Compute the attack bitboards for a bishop on a given square.
+ * @param square_on_120_board board square on the 120 square board.
+ * @return the bitboard of the bishop attacks of a given board square provided.
+ */
+BitBoard BazuuBoard::mask_bishop_attacks(BoardSquares square_on_120_board) {
+  File bishop_file;
+  Rank bishop_rank;
+  std::tie(bishop_file, bishop_rank) = this->get_file_and_rank(square_on_120_board);
+  std::int8_t rank, file;
+  BitBoard attacks = 0ULL;
+  for (rank = std::to_underlying(bishop_rank) + 1, file = std::to_underlying(bishop_file) + 1;
+       rank <= std::to_underlying(Rank::R7) && file <= std::to_underlying(File::G); rank++, file++) {
+    attacks |= 1ULL << (rank * 8 + file);
+  }
+  for (rank = std::to_underlying(bishop_rank) - 1, file = std::to_underlying(bishop_file) + 1;
+       rank >= std::to_underlying(Rank::R2) && file <= std::to_underlying(File::G); rank--, file++) {
+    attacks |= 1ULL << (rank * 8 + file);
+  }
+  for (rank = std::to_underlying(bishop_rank) + 1, file = std::to_underlying(bishop_file) - 1;
+       rank <= std::to_underlying(Rank::R7) && file >= std::to_underlying(File::B); rank++, file--) {
+    attacks |= 1ULL << (rank * 8 + file);
+  }
+  for (rank = std::to_underlying(bishop_rank) - 1, file = std::to_underlying(bishop_file) - 1;
+       rank >= std::to_underlying(Rank::R2) && file >= std::to_underlying(File::B); rank--, file--) {
+    attacks |= 1ULL << (rank * 8 + file);
+  }
+  return attacks;
+}
+BitBoard BazuuBoard::mask_bishop_attacks_realtime(BoardSquares square_on_120_board, BitBoard block) {
+  File bishop_file;
+  Rank bishop_rank;
+  std::tie(bishop_file, bishop_rank) = this->get_file_and_rank(square_on_120_board);
+  std::int8_t rank, file;
+  BitBoard attacks = 0ULL;
+  U64 bishop_piece_board = 0ULL;
+  for (rank = std::to_underlying(bishop_rank) + 1, file = std::to_underlying(bishop_file) + 1;
+       rank <= std::to_underlying(Rank::R8) && file <= std::to_underlying(File::H); rank++, file++) {
+    bishop_piece_board = 0ULL;
+    bishop_piece_board |= 1ULL << (rank * 8 + file);
+    attacks |= bishop_piece_board;
+    if (bishop_piece_board & block) {
+      break;
+    }
+  }
+  for (rank = std::to_underlying(bishop_rank) - 1, file = std::to_underlying(bishop_file) + 1;
+       rank >= std::to_underlying(Rank::R1) && file <= std::to_underlying(File::H); rank--, file++) {
+    bishop_piece_board = 0ULL;
+    bishop_piece_board |= 1ULL << (rank * 8 + file);
+    attacks |= bishop_piece_board;
+    if (bishop_piece_board & block) {
+      break;
+    }
+  }
+  for (rank = std::to_underlying(bishop_rank) + 1, file = std::to_underlying(bishop_file) - 1;
+       rank <= std::to_underlying(Rank::R8) && file >= std::to_underlying(File::A); rank++, file--) {
+    bishop_piece_board = 0ULL;
+    bishop_piece_board |= 1ULL << (rank * 8 + file);
+    attacks |= bishop_piece_board;
+    if (bishop_piece_board & block) {
+      break;
+    }
+  }
+  for (rank = std::to_underlying(bishop_rank) - 1, file = std::to_underlying(bishop_file) - 1;
+       rank >= std::to_underlying(Rank::R1) && file >= std::to_underlying(File::A); rank--, file--) {
+    bishop_piece_board = 0ULL;
+    bishop_piece_board |= 1ULL << (rank * 8 + file);
+    attacks |= bishop_piece_board;
+    if (bishop_piece_board & block) {
+      break;
+    }
+  }
+  return attacks;
+}
+
+/*
+ * Compute the attack bitboards for a rook on a given square.
+ * @param square_on_120_board board square on the 120 square board.
+ * @return the bitboard of the rook attacks of a given board square provided.
+ */
+BitBoard BazuuBoard::mask_rook_attacks(BoardSquares square_on_120_board) {
+  File rook_file;
+  Rank rook_rank;
+  std::tie(rook_file, rook_rank) = this->get_file_and_rank(square_on_120_board);
+  std::int8_t rank, file;
+  BitBoard attacks = 0ULL;
+  for (rank = std::to_underlying(rook_rank) + 1; rank <= std::to_underlying(Rank::R7); rank++) {
+    attacks |= 1ULL << (rank * 8 + std::to_underlying(rook_file));
+  }
+  for (rank = std::to_underlying(rook_rank) - 1; rank >= std::to_underlying(Rank::R2); rank--) {
+    attacks |= 1ULL << (rank * 8 + std::to_underlying(rook_file));
+  }
+  for (file = std::to_underlying(rook_file) + 1; file <= std::to_underlying(File::G); file++) {
+    attacks |= 1ULL << (std::to_underlying(rook_rank) * 8 + file);
+  }
+  for (file = std::to_underlying(rook_file) - 1; file >= std::to_underlying(File::B); file--) {
+    attacks |= 1ULL << (std::to_underlying(rook_rank) * 8 + file);
+  }
+  return attacks;
+}
+
+BitBoard BazuuBoard::mask_rook_attacks_realtime(BoardSquares square_on_120_board, BitBoard block) {
+  File rook_file;
+  Rank rook_rank;
+  std::tie(rook_file, rook_rank) = this->get_file_and_rank(square_on_120_board);
+  std::int8_t rank, file;
+  BitBoard attacks = 0ULL;
+  BitBoard rook_piece_board = 0ULL;
+  for (rank = std::to_underlying(rook_rank) + 1; rank <= std::to_underlying(Rank::R8); rank++) {
+    rook_piece_board = 0ULL;
+    rook_piece_board |= 1ULL << (rank * 8 + std::to_underlying(rook_file));
+    attacks |= rook_piece_board;
+    if (rook_piece_board & block)
+      break;
+  }
+  for (rank = std::to_underlying(rook_rank) - 1; rank >= std::to_underlying(Rank::R1); rank--) {
+    rook_piece_board = 0ULL;
+    rook_piece_board |= 1ULL << (rank * 8 + std::to_underlying(rook_file));
+    attacks |= rook_piece_board;
+    if (rook_piece_board & block)
+      break;
+  }
+  for (file = std::to_underlying(rook_file) + 1; file <= std::to_underlying(File::H); file++) {
+    rook_piece_board = 0ULL;
+    rook_piece_board |= 1ULL << (std::to_underlying(rook_rank) * 8 + file);
+    attacks |= rook_piece_board;
+    if (rook_piece_board & block)
+      break;
+  }
+  for (file = std::to_underlying(rook_file) - 1; file >= std::to_underlying(File::A); file--) {
+    rook_piece_board = 0ULL;
+    rook_piece_board |= 1ULL << (std::to_underlying(rook_rank) * 8 + file);
+    attacks |= rook_piece_board;
+    if (rook_piece_board & block)
+      break;
+  }
+  return attacks;
+}
+
+/*
  * Get the knight attacks bit board for a given board square.
  * @param square_on_120_board board square on the 120 square board.
  * @return the bitboard of the knight attacks of a given board square provided.
@@ -481,6 +645,34 @@ BitBoard BazuuBoard::get_knight_attacks(BoardSquares square_on_120_board) const 
 BitBoard BazuuBoard::get_king_attacks(BoardSquares square_on_120_board) const {
   return this->king_attacks[std::to_underlying(square_on_120_board)];
 }
+
+/*
+ * Get the pawn attacks bit board for a given board square.
+ * @param square_on_120_board board square on the 120 square board.
+ * @return the bitboard of the king attacks of a given board square provided.
+ */
+BitBoard BazuuBoard::get_pawn_attacks(Colours side, BoardSquares square_on_120_board) const {
+  return this->pawn_attacks[std::to_underlying(side)][std::to_underlying(square_on_120_board)];
+}
+
+/*
+ * Get the bishop attacks bit board for a given board square.
+ * @param square_on_120_board board square on the 120 square board.
+ * @return the bitboard of the king attacks of a given board square provided.
+ */
+BitBoard BazuuBoard::get_bishop_attacks(BoardSquares square_on_120_board) const {
+  return this->bishop_attacks[std::to_underlying(square_on_120_board)];
+}
+
+/*
+ * Get the rook attacks bit board for a given board square.
+ * @param square_on_120_board board square on the 120 square board.
+ * @return the bitboard of the king attacks of a given board square provided.
+ */
+BitBoard BazuuBoard::get_rook_attacks(BoardSquares square_on_120_board) const {
+  return this->rook_attacks[std::to_underlying(square_on_120_board)];
+}
+
 /*
  * Reset the chess board.
  */
