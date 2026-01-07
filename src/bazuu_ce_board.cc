@@ -1,31 +1,24 @@
+#include "bazuu_ce_board.hpp"
 #include "bazuu_ce_zobrist.hpp"
+#include "bazuu_magic_data.hpp"
 #include "defs.hpp"
 #include <algorithm>
-#include <bazuu_ce_board.hpp>
 #include <bit>
 #include <cassert>
 #include <cctype>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <iomanip>
 #include <iostream>
 #include <memory>
 #include <print>
+#include <prng.hpp>
 #include <string>
 #include <tuple>
 #include <utility>
 
 const std::string BazuuBoard::STARTING_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-const U64 A_FILE = 0x0101010101010101;
-const U64 H_FILE = 0x8080808080808080;
-const U64 RANK_1 = 0x00000000000000FF;
-const U64 RANK_8 = 0xFF00000000000000;
-const U64 A1_H8_DIAG = 0x8040201008040201;
-const U64 H1_A8_DIAG = 0x0102040810204080;
-const U64 LIGHT_SQUARE = 0x55AA55AA55AA55AA;
-const U64 DARK_SQUARE = 0xAA55AA55AA55AA55;
-const U64 NOT_A_FILE = 0xfefefefefefefefe; // ~0x0101010101010101
-const U64 NOT_H_FILE = 0x7f7f7f7f7f7f7f7f; // ~0x8080808080808080
 
 BazuuBoard::BazuuBoard() {
   this->zobrist = std::make_shared<BazuuZobrist>();
@@ -34,6 +27,7 @@ BazuuBoard::BazuuBoard() {
   this->init_board_squares();
   this->game_state->zobrist_key = this->generate_hash_keys();
   this->init_non_sliding_attacks();
+  this->prng = std::make_unique<PRNG>(Magic::seed);
 }
 
 /*
@@ -122,6 +116,76 @@ ZobristKey BazuuBoard::generate_hash_keys() {
   assert(this->game_state->castling < 16);
   key ^= zobrist->castling_hash(this->game_state->castling);
   return key;
+}
+
+U64 BazuuBoard::generate_magic_number() { return this->prng->sparse_rand(); }
+
+/*
+ * Generate the magic number that properly maps their attack bitboard maps of the sliding pieces.
+ * @param square_on_120_board - the square in question i.e. we need a magic number.
+ * @param attack_mask_bits - Number of the set bits in the attack mask for the given square aka how many enemies are on
+ * the line of fire.
+ * @param peice - is Bishop or Rook on the square?
+ *
+ */
+U64 BazuuBoard::find_magic_number(BoardSquares square_on_120_board, std::uint8_t attack_mask_bits, PieceType piece) {
+  // maximum number of occupancies is 2^12 = 4096
+  U64 occupancies[4096];
+  U64 attacks[4096];
+  U64 used_attacks[4096];
+  U64 attack_mask = piece == PieceType::B ? this->mask_bishop_attacks(square_on_120_board)
+                                          : this->mask_rook_attacks(square_on_120_board);
+  std::uint16_t max_occupancies = 1 << attack_mask_bits;
+
+  // Get all the occupancy boards at the given square.
+  // Create a matrix of all the occupancies at a given square and
+  // the possible updated/on the fly/realtime attack masks of each occupancy from the square for the piece.
+  for (std::uint16_t idx = 0; idx < max_occupancies; idx++) {
+    occupancies[idx] = this->create_occupancy_board(idx, attack_mask_bits, attack_mask);
+    attacks[idx] = piece == PieceType::B ? this->mask_bishop_attacks_realtime(square_on_120_board, occupancies[idx])
+                                         : this->mask_rook_attacks_realtime(square_on_120_board, occupancies[idx]);
+  }
+  // Test the magic numbers
+  for (std::uint32_t random_count = 0; random_count < 1000000; random_count++) {
+
+    U64 magic_number = generate_magic_number();
+
+    // Ensures the upper bits have enough entropy for good hashing
+    if (std::popcount((attack_mask * magic_number) & 0xff00000000000000) < 6)
+      continue;
+
+    std::memset(used_attacks, 0ULL, sizeof(used_attacks));
+    std::uint8_t fail = 0;
+
+    uint8_t shift = 64 - attack_mask_bits;
+    for (std::uint16_t idx2 = 0, fail = 0; !fail && idx2 < max_occupancies; idx2++) {
+      std::uint32_t magic_index = ((occupancies[idx2] * magic_number) >> shift);
+      if (used_attacks[magic_index] == 0ULL)
+        used_attacks[magic_index] = attacks[idx2];
+      // generated same magic number for two entries;
+      else if (used_attacks[magic_index] != attacks[idx2])
+        fail = 1;
+    }
+
+    if (!fail) {
+
+      return magic_number;
+    }
+  }
+  std::println("Magic Number fails, oh no!");
+  return 0ULL;
+}
+
+void BazuuBoard::init_magic_numbers() {
+  U64 magic_number;
+  for (std ::uint8_t square_on_64_board = 0; square_on_64_board < this->INVALID_SQUARE_ON_64; square_on_64_board++) {
+    BoardSquares square_on_120_board = to_120_board_square(square_on_64_board);
+    magic_number = find_magic_number(square_on_120_board, rook_attack_mask_bits[square_on_64_board], PieceType::R);
+  }
+  for (std ::uint8_t square_on_64_board = 0; square_on_64_board < this->INVALID_SQUARE_ON_64; square_on_64_board++) {
+    BoardSquares square_on_120_board = to_120_board_square(square_on_64_board);
+    magic_number = find_magic_number(square_on_120_board, bishop_attack_mask_bits[square_on_64_board], PieceType::B);
+  }
 }
 
 /*
@@ -328,18 +392,21 @@ void BazuuBoard::print_bit_board(BitBoard bit_board) {
   BoardSquares square_on_120_board = BoardSquares::A1;
   uint8_t square_on_64_board = 0;
   std::println("\n");
+  std::println("+---+---+---+---+---+---+---+---+");
   for (int rank = std::to_underlying(Rank::R8); rank >= std::to_underlying(Rank::R1); --rank) {
     for (int file = std::to_underlying(File::A); file <= std::to_underlying(File::H); ++file) {
       square_on_120_board = this->file_rank_to_120_board(static_cast<File>(file), static_cast<Rank>(rank));
       square_on_64_board = this->sq_120_to_sq_64[std::to_underlying(square_on_120_board)];
       if ((1ULL << square_on_64_board) & bit_board) {
-        std::cout << std::setw(2) << "X";
+        std::cout << std::setw(2) << "| X ";
       } else {
-        std::cout << std::setw(2) << "-";
+        std::cout << std::setw(2) << "|   ";
       }
     }
-    std::println();
+    std::println("| {}", rank + 1);
+    std::println("+---+---+---+---+---+---+---+---+");
   }
+  std::println("  a   b   c   d   e   f   g   h");
   std::println("\n");
 }
 
@@ -673,6 +740,19 @@ BitBoard BazuuBoard::get_rook_attacks(BoardSquares square_on_120_board) const {
   return this->rook_attacks[std::to_underlying(square_on_120_board)];
 }
 
+BitBoard BazuuBoard::create_occupancy_board(std::uint16_t occupancy_index, std::uint8_t bits_in_mask,
+                                            BitBoard attack_mask) {
+  BitBoard occupancy = 0ULL;
+  int square;
+  for (int count = 0; count < bits_in_mask; count++) {
+    square = std::countr_zero(attack_mask);
+    this->pop_bit(attack_mask, square);
+    if (occupancy_index & (1 << count)) {
+      occupancy |= (1ULL << square);
+    }
+  }
+  return occupancy;
+}
 /*
  * Reset the chess board.
  */

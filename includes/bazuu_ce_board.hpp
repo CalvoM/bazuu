@@ -1,12 +1,14 @@
 #ifndef BAZUU_CE_H_
 #define BAZUU_CE_H_
 
+#include "bazuu_magic_data.hpp"
 #include <bazuu_ce_game_state.hpp>
 #include <bazuu_ce_zobrist.hpp>
 #include <cstdint>
 #include <defs.hpp>
 #include <memory>
 #include <print>
+#include <prng.hpp>
 #include <string>
 #include <utility>
 
@@ -21,7 +23,7 @@ public:
   // two pieces plus 8 possible pawns that can be promoted.
   static constexpr std::uint8_t MAX_NUM_OF_PIECES_PER_TYPE = 10;
   static constexpr std::uint8_t BOARD_64_OFFSET = 21;
-  static constexpr std::uint8_t INVALID_SQUARE_ON_64 = 65;
+  static constexpr std::uint8_t INVALID_SQUARE_ON_64 = 64;
   static const std::string STARTING_FEN;
   static constexpr U64 A_FILE = 0x0101010101010101;
   static constexpr U64 H_FILE = 0x8080808080808080;
@@ -35,6 +37,14 @@ public:
   static constexpr U64 NOT_H_FILE = 0x7f7f7f7f7f7f7f7f; // ~0x8080808080808080
   static constexpr U64 NOT_AB_FILES = 0xfcfcfcfcfcfcfcfc;
   static constexpr U64 NOT_GH_FILES = 0x3f3f3f3f3f3f3f3f;
+  static constexpr std::uint8_t bishop_attack_mask_bits[64] = {
+      6, 5, 5, 5, 5, 5, 5, 6, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 7, 7, 7, 7, 5, 5, 5, 5, 7, 9, 9, 7, 5, 5,
+      5, 5, 7, 9, 9, 7, 5, 5, 5, 5, 7, 7, 7, 7, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 5, 5, 5, 5, 5, 5, 6};
+
+  static constexpr std::uint8_t rook_attack_mask_bits[64] = {
+      12, 11, 11, 11, 11, 11, 11, 12, 11, 10, 10, 10, 10, 10, 10, 11, 11, 10, 10, 10, 10, 10,
+      10, 11, 11, 10, 10, 10, 10, 10, 10, 11, 11, 10, 10, 10, 10, 10, 10, 11, 11, 10, 10, 10,
+      10, 10, 10, 11, 11, 10, 10, 10, 10, 10, 10, 11, 12, 11, 11, 11, 11, 11, 11, 12};
   std::uint16_t current_king_square[2];
   std::uint16_t pieces_on_board[13];
   std::uint16_t non_pawn_pieces[3]; // White, Black and Both Colors.
@@ -64,11 +74,18 @@ public:
   BitBoard get_pawn_attacks(Colours side, BoardSquares square_on_120_board) const;
   BitBoard get_bishop_attacks(BoardSquares square_on_120_board) const;
   BitBoard get_rook_attacks(BoardSquares square_on_120_board) const;
+  BitBoard mask_bishop_attacks(BoardSquares square_on_120_board);
+  BitBoard mask_rook_attacks(BoardSquares square_on_120_board);
   BitBoard mask_bishop_attacks_realtime(BoardSquares square_on_120_board, BitBoard block);
   BitBoard mask_rook_attacks_realtime(BoardSquares square_on_120_board, BitBoard block);
+  BitBoard create_occupancy_board(std::uint16_t occupancy_index, std::uint8_t bits_in_mask, BitBoard attack_mask);
   BoardSquares king_square(Colours colour) const;
   bool has_bishop_pair(Colours colour);
   std::pair<File, Rank> get_file_and_rank(BoardSquares square_on_120_board) const;
+  constexpr inline void pop_bit(U64 &bb, int bit) noexcept { bb &= ~(1ULL << bit); }
+  U64 generate_magic_number();
+  U64 find_magic_number(BoardSquares square, std::uint8_t attack_mask_bits, PieceType piece);
+  void init_magic_numbers();
   void reset();
 
 private:
@@ -76,17 +93,18 @@ private:
   BoardSquares sq_64_to_sq_120[64];
   std::shared_ptr<BazuuZobrist> zobrist;
   std::shared_ptr<BazuuGameState> game_state;
+  std::unique_ptr<PRNG> prng;
   BitBoard bitboards_for_pieces[std::to_underlying(Colours::Both)][std::to_underlying(PieceType::Empty)];
   BitBoard bitboards_for_sides[std::to_underlying(Colours::Both)];
   BoardSquares piece_list[std::to_underlying(Colours::Both)][std::to_underlying(PieceType::Empty)]
                          [MAX_NUM_OF_PIECES_PER_TYPE];
   std::uint8_t piece_count[std::to_underlying(Colours::Both)][std::to_underlying(PieceType::Empty)];
+  static constexpr auto &rook_magics = Magic::ROOK_DATA;
+  static constexpr auto &bishop_magics = Magic::BISHOP_DATA;
   std::pair<File, Rank> file_rank_to_board_mapper[BRD_SQ_NUM];
   BitBoard mask_knight_attacks(BoardSquares square_on_120_board);
   BitBoard mask_king_attacks(BoardSquares square_on_120_board);
   BitBoard mask_pawn_attacks(Colours side, BoardSquares square_on_120_board);
-  BitBoard mask_bishop_attacks(BoardSquares square_on_120_board);
-  BitBoard mask_rook_attacks(BoardSquares square_on_120_board);
   void print_bits(U64 n) {
     unsigned long long i;
     std::string buf;

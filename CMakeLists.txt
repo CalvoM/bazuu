@@ -1,28 +1,73 @@
-include(FetchContent)
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.20)
+
 project(
   bazuu
   VERSION 1.0
   DESCRIPTION "Bazuu, a chess engine."
-  LANGUAGES CXX)
+  LANGUAGES CXX
+)
+
+include(FetchContent)
+
+# C++ Standard
 set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+# Export compile_commands.json
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_INSTALL_PREFIX "/usr/local/include")
-set(CMAKE_CONFIGURATION_TYPES "Debug")
-set(CMAKE_BUILD_TYPE "Debug")
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/includes/)
-
-# configure the lib from src/*.cc
+# Sources
 file(GLOB SOURCES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/src/*.cc)
-add_library(${PROJECT_NAME}_lib ${SOURCES})
-target_include_directories(${PROJECT_NAME}_lib
-                           PUBLIC ${CMAKE_SOURCE_DIR}/includes)
 
-# configure the main target
-add_executable(${PROJECT_NAME} bazuu.cxx)
-target_link_libraries(${PROJECT_NAME} PRIVATE ${PROJECT_NAME}_lib)
-target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -Wpedantic)
-# Catch2 Testing
+# Library target
+add_library(bazuu_lib ${SOURCES})
+
+target_include_directories(bazuu_lib
+  PUBLIC ${CMAKE_SOURCE_DIR}/includes
+)
+
+# Warnings (debug-oriented, but cheap)
+target_compile_options(bazuu_lib
+  PRIVATE
+    -Wall
+    -Wextra
+    -Wpedantic
+)
+
+# Speed-focused optimizations
+target_compile_options(bazuu_lib
+  PRIVATE
+    $<$<CONFIG:Release>:
+      -O3
+      -march=native
+      -mtune=native
+      -ffast-math
+      -fstrict-aliasing
+      -funroll-loops
+    >
+)
+
+# Link-time optimization
+set_property(TARGET bazuu_lib PROPERTY
+  INTERPROCEDURAL_OPTIMIZATION_RELEASE ON
+)
+
+# Executable
+add_executable(bazuu bazuu.cxx)
+
+target_link_libraries(bazuu
+  PRIVATE bazuu_lib
+)
+
+target_compile_options(bazuu
+  PRIVATE
+    -Wall
+    -Wextra
+    -Wpedantic
+)
+
+# Tests
 enable_testing()
 add_subdirectory(tests)
+
