@@ -6,9 +6,11 @@
 #include <bazuu_ce_zobrist.hpp>
 #include <cstdint>
 #include <defs.hpp>
+#include <map>
 #include <memory>
 #include <print>
 #include <prng.hpp>
+#include <set>
 #include <string>
 #include <utility>
 
@@ -56,8 +58,11 @@ public:
   BitBoard pawn_attacks[std::to_underlying(Colours::Both)][std::to_underlying(BoardSquares::NO_SQ)];
   BitBoard bishop_attacks[std::to_underlying(BoardSquares::NO_SQ)];
   BitBoard rook_attacks[std::to_underlying(BoardSquares::NO_SQ)];
+  BitBoard bishop_attacks_realtime[64][512]; // max set mask bits 9 ... 2^9
+  BitBoard rook_attacks_realtime[64][4096];  // max set mask bits 12 ... 2^12
   void init_board_squares();
   void init_non_sliding_attacks();
+  void init_sliding_attacks(PieceType piece);
   void update_piece_list();
   void print_square_layout();
   void print_bit_board(BitBoard bit_board);
@@ -78,6 +83,8 @@ public:
   BitBoard mask_rook_attacks(BoardSquares square_on_120_board);
   BitBoard mask_bishop_attacks_realtime(BoardSquares square_on_120_board, BitBoard block);
   BitBoard mask_rook_attacks_realtime(BoardSquares square_on_120_board, BitBoard block);
+  BitBoard get_bishop_attacks_lookup(BoardSquares square_on_120_board, BitBoard occupancy);
+  BitBoard get_rook_attacks_lookup(BoardSquares square_on_120_board, BitBoard occupancy);
   BitBoard create_occupancy_board(std::uint16_t occupancy_index, std::uint8_t bits_in_mask, BitBoard attack_mask);
   BoardSquares king_square(Colours colour) const;
   bool has_bishop_pair(Colours colour);
@@ -87,6 +94,7 @@ public:
   U64 find_magic_number(BoardSquares square, std::uint8_t attack_mask_bits, PieceType piece);
   void init_magic_numbers();
   void reset();
+  void verify_all_magics();
 
 private:
   std::uint8_t sq_120_to_sq_64[BRD_SQ_NUM];
@@ -99,8 +107,8 @@ private:
   BoardSquares piece_list[std::to_underlying(Colours::Both)][std::to_underlying(PieceType::Empty)]
                          [MAX_NUM_OF_PIECES_PER_TYPE];
   std::uint8_t piece_count[std::to_underlying(Colours::Both)][std::to_underlying(PieceType::Empty)];
-  static constexpr auto &rook_magics = Magic::ROOK_DATA;
-  static constexpr auto &bishop_magics = Magic::BISHOP_DATA;
+  static constexpr auto &rook_magic_data = Magic::ROOK_DATA;
+  static constexpr auto &bishop_magic_data = Magic::BISHOP_DATA;
   std::pair<File, Rank> file_rank_to_board_mapper[BRD_SQ_NUM];
   BitBoard mask_knight_attacks(BoardSquares square_on_120_board);
   BitBoard mask_king_attacks(BoardSquares square_on_120_board);
