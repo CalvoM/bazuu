@@ -64,6 +64,7 @@ public:
   void init_non_sliding_attacks();
   void init_sliding_attacks(PieceType piece);
   void update_piece_list();
+  void update_sides_bitboards();
   void print_square_layout();
   void print_bit_board(BitBoard bit_board);
   void print_board();
@@ -74,6 +75,7 @@ public:
   BoardSquares file_rank_to_120_board(File file, Rank rank) const;
   BitBoard get_bitboard_of_piece(PieceType piece, Colours colour);
   BitBoard occupancy() const;
+  BitBoard side_occupancy(Colours colour) const;
   BitBoard get_knight_attacks(BoardSquares square_on_120_board) const;
   BitBoard get_king_attacks(BoardSquares square_on_120_board) const;
   BitBoard get_pawn_attacks(Colours side, BoardSquares square_on_120_board) const;
@@ -85,16 +87,17 @@ public:
   BitBoard mask_rook_attacks_realtime(BoardSquares square_on_120_board, BitBoard block);
   BitBoard get_bishop_attacks_lookup(BoardSquares square_on_120_board, BitBoard occupancy);
   BitBoard get_rook_attacks_lookup(BoardSquares square_on_120_board, BitBoard occupancy);
+  BitBoard get_queen_attacks_lookup(BoardSquares square_on_120_board, BitBoard occupancy);
   BitBoard create_occupancy_board(std::uint16_t occupancy_index, std::uint8_t bits_in_mask, BitBoard attack_mask);
   BoardSquares king_square(Colours colour) const;
   bool has_bishop_pair(Colours colour);
   std::pair<File, Rank> get_file_and_rank(BoardSquares square_on_120_board) const;
-  constexpr inline void pop_bit(U64 &bb, int bit) noexcept { bb &= ~(1ULL << bit); }
   U64 generate_magic_number();
   U64 find_magic_number(BoardSquares square, std::uint8_t attack_mask_bits, PieceType piece);
   void init_magic_numbers();
   void reset();
   void verify_all_magics();
+  constexpr inline void pop_bit(U64 &bb, int bit) noexcept { bb &= ~(1ULL << bit); }
 
 private:
   std::uint8_t sq_120_to_sq_64[BRD_SQ_NUM];
