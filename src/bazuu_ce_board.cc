@@ -27,6 +27,8 @@ BazuuBoard::BazuuBoard() {
   this->init_board_squares();
   this->game_state->zobrist_key = this->generate_hash_keys();
   this->init_non_sliding_attacks();
+  this->init_sliding_attacks(PieceType::B);
+  this->init_sliding_attacks(PieceType::R);
   this->prng = std::make_unique<PRNG>(Magic::seed);
 }
 
@@ -67,6 +69,40 @@ void BazuuBoard::init_non_sliding_attacks() {
         this->mask_pawn_attacks(Colours::Black, square_on_120_board);
   }
 }
+
+/*
+ * Initialize the attack bitboards and masks for sliding pieces e.g. B and R
+ */
+void BazuuBoard::init_sliding_attacks(PieceType piece) {
+  for (std ::uint8_t square_on_64_board = 0; square_on_64_board < this->INVALID_SQUARE_ON_64; square_on_64_board++) {
+    BoardSquares square_on_120_board = to_120_board_square(square_on_64_board);
+    this->bishop_attacks[std::to_underlying(square_on_120_board)] = this->mask_bishop_attacks(square_on_120_board);
+    this->rook_attacks[std::to_underlying(square_on_120_board)] = this->mask_rook_attacks(square_on_120_board);
+
+    BitBoard attack_mask = piece == PieceType::B ? this->bishop_attacks[std::to_underlying(square_on_120_board)]
+                                                 : this->rook_attacks[std::to_underlying(square_on_120_board)];
+    std::uint8_t attack_mask_bits_count = piece == PieceType::B ? this->bishop_attack_mask_bits[square_on_64_board]
+                                                                : this->rook_attack_mask_bits[square_on_64_board];
+    std::uint16_t max_occupancies = 1 << attack_mask_bits_count;
+    for (std::uint16_t idx = 0; idx < max_occupancies; idx++) {
+      if (piece == PieceType::B) {
+        BitBoard occupancy = this->create_occupancy_board(idx, attack_mask_bits_count, attack_mask);
+        std::uint64_t magic_index = (occupancy * this->bishop_magic_data[square_on_64_board].magic) >>
+                                    this->bishop_magic_data[square_on_64_board].shift;
+        auto rt_occupancy = this->mask_bishop_attacks_realtime(square_on_120_board, occupancy);
+        bishop_attacks_realtime[square_on_64_board][magic_index] = rt_occupancy;
+
+      } else if (piece == PieceType::R) {
+        BitBoard occupancy = this->create_occupancy_board(idx, attack_mask_bits_count, attack_mask);
+        std::uint64_t magic_index = (occupancy * this->rook_magic_data[square_on_64_board].magic) >>
+                                    this->rook_magic_data[square_on_64_board].shift;
+        rook_attacks_realtime[square_on_64_board][magic_index] =
+            this->mask_rook_attacks_realtime(square_on_120_board, occupancy);
+      }
+    }
+  }
+}
+
 /*
  * Clears and updates the board piece list.
  */
@@ -145,7 +181,6 @@ U64 BazuuBoard::find_magic_number(BoardSquares square_on_120_board, std::uint8_t
     attacks[idx] = piece == PieceType::B ? this->mask_bishop_attacks_realtime(square_on_120_board, occupancies[idx])
                                          : this->mask_rook_attacks_realtime(square_on_120_board, occupancies[idx]);
   }
-  // Test the magic numbers
   for (std::uint32_t random_count = 0; random_count < 1000000; random_count++) {
 
     U64 magic_number = generate_magic_number();
@@ -155,24 +190,35 @@ U64 BazuuBoard::find_magic_number(BoardSquares square_on_120_board, std::uint8_t
       continue;
 
     std::memset(used_attacks, 0ULL, sizeof(used_attacks));
-    std::uint8_t fail = 0;
+    bool fail = false;
 
     uint8_t shift = 64 - attack_mask_bits;
-    for (std::uint16_t idx2 = 0, fail = 0; !fail && idx2 < max_occupancies; idx2++) {
-      std::uint32_t magic_index = ((occupancies[idx2] * magic_number) >> shift);
-      if (used_attacks[magic_index] == 0ULL)
+    // Array size: 512 for bishops (max 9 bits), 4096 for rooks (max 12 bits)
+    std::uint16_t max_array_size = (piece == PieceType::B) ? 512 : 4096;
+    for (std::uint16_t idx2 = 0; !fail && idx2 < max_occupancies; idx2++) {
+      // Mask occupancy to match actual usage in get_*_attacks_realtime functions
+      // Note: create_occupancy_board already creates occupancies within the attack mask,
+      // but we mask again to be consistent with actual usage
+      std::uint64_t magic_index = ((occupancies[idx2] * magic_number) >> shift);
+      // Ensure magic_index is within array bounds (must be < array size)
+      if (magic_index >= max_array_size) {
+        fail = true;
+        break;
+      }
+      // Check for collisions: if this magic_index was used before with a different attack pattern, it's a collision
+      if (used_attacks[magic_index] == 0ULL) {
         used_attacks[magic_index] = attacks[idx2];
-      // generated same magic number for two entries;
-      else if (used_attacks[magic_index] != attacks[idx2])
-        fail = 1;
+      } else if (used_attacks[magic_index] != attacks[idx2] and used_attacks[magic_index] != 0ULL) {
+        fail = true;
+        break;
+      }
     }
 
     if (!fail) {
-
       return magic_number;
     }
   }
-  std::println("Magic Number fails, oh no!");
+  std::println("Magic Number fails, oh no!: ");
   return 0ULL;
 }
 
@@ -181,10 +227,13 @@ void BazuuBoard::init_magic_numbers() {
   for (std ::uint8_t square_on_64_board = 0; square_on_64_board < this->INVALID_SQUARE_ON_64; square_on_64_board++) {
     BoardSquares square_on_120_board = to_120_board_square(square_on_64_board);
     magic_number = find_magic_number(square_on_120_board, rook_attack_mask_bits[square_on_64_board], PieceType::R);
+    std::println("{{0x{:016X}ULL, {}}},", magic_number, 64 - this->rook_attack_mask_bits[square_on_64_board]);
   }
+  std::println("\n\n");
   for (std ::uint8_t square_on_64_board = 0; square_on_64_board < this->INVALID_SQUARE_ON_64; square_on_64_board++) {
     BoardSquares square_on_120_board = to_120_board_square(square_on_64_board);
     magic_number = find_magic_number(square_on_120_board, bishop_attack_mask_bits[square_on_64_board], PieceType::B);
+    std::println("{{0x{:016X}ULL, {}}},", magic_number, 64 - this->bishop_attack_mask_bits[square_on_64_board]);
   }
 }
 
@@ -391,21 +440,29 @@ void BazuuBoard::print_square_layout() {
 void BazuuBoard::print_bit_board(BitBoard bit_board) {
   BoardSquares square_on_120_board = BoardSquares::A1;
   uint8_t square_on_64_board = 0;
+
   std::println("\n");
   std::println("+---+---+---+---+---+---+---+---+");
+
   for (int rank = std::to_underlying(Rank::R8); rank >= std::to_underlying(Rank::R1); --rank) {
+
     for (int file = std::to_underlying(File::A); file <= std::to_underlying(File::H); ++file) {
+
       square_on_120_board = this->file_rank_to_120_board(static_cast<File>(file), static_cast<Rank>(rank));
+
       square_on_64_board = this->sq_120_to_sq_64[std::to_underlying(square_on_120_board)];
+
       if ((1ULL << square_on_64_board) & bit_board) {
-        std::cout << std::setw(2) << "| X ";
+        std::cout << "| X ";
       } else {
-        std::cout << std::setw(2) << "|   ";
+        std::cout << "|   ";
       }
     }
+
     std::println("| {}", rank + 1);
     std::println("+---+---+---+---+---+---+---+---+");
   }
+
   std::println("  a   b   c   d   e   f   g   h");
   std::println("\n");
 }
@@ -447,11 +504,11 @@ void BazuuBoard::print_board() {
     std::print("\x1b[1;31m{} ", char('a' + file));
   }
   std::println("\x1b[0m\n");
-  std::println("\e[0;32m Side to play\x1b[0m: \e[4;32m{}\x1b[0m:",
+  std::println("\x1B[0;32m Side to play\x1b[0m: \x1B[4;32m{}\x1b[0m:",
                ActiveSideRep[std::to_underlying(this->game_state->active_side)]);
-  std::println("\e[0;32m En-Passant Target:\x1b[0m: \e[4;32m{}\x1b[0m:",
+  std::println("\x1B[0;32m En-Passant Target:\x1b[0m: \x1B[4;32m{}\x1b[0m:",
                std::to_underlying(this->game_state->en_passant_square));
-  std::println("\e[0;32m Hash Key of the position:\x1b[0m: \e[4;32m{}\x1b[0m:", this->game_state->zobrist_key);
+  std::println("\x1B[0;32m Hash Key of the position:\x1b[0m: \x1B[4;32m{}\x1b[0m:", this->game_state->zobrist_key);
 }
 
 /*
@@ -565,7 +622,7 @@ BitBoard BazuuBoard::mask_bishop_attacks(BoardSquares square_on_120_board) {
   File bishop_file;
   Rank bishop_rank;
   std::tie(bishop_file, bishop_rank) = this->get_file_and_rank(square_on_120_board);
-  std::int8_t rank, file;
+  std::int8_t rank = 0, file = 0;
   BitBoard attacks = 0ULL;
   for (rank = std::to_underlying(bishop_rank) + 1, file = std::to_underlying(bishop_file) + 1;
        rank <= std::to_underlying(Rank::R7) && file <= std::to_underlying(File::G); rank++, file++) {
@@ -589,13 +646,13 @@ BitBoard BazuuBoard::mask_bishop_attacks_realtime(BoardSquares square_on_120_boa
   File bishop_file;
   Rank bishop_rank;
   std::tie(bishop_file, bishop_rank) = this->get_file_and_rank(square_on_120_board);
-  std::int8_t rank, file;
+  std::int8_t rank = 0, file = 0;
   BitBoard attacks = 0ULL;
   U64 bishop_piece_board = 0ULL;
   for (rank = std::to_underlying(bishop_rank) + 1, file = std::to_underlying(bishop_file) + 1;
        rank <= std::to_underlying(Rank::R8) && file <= std::to_underlying(File::H); rank++, file++) {
     bishop_piece_board = 0ULL;
-    bishop_piece_board |= 1ULL << (rank * 8 + file);
+    bishop_piece_board = 1ULL << (rank * 8 + file);
     attacks |= bishop_piece_board;
     if (bishop_piece_board & block) {
       break;
@@ -604,7 +661,7 @@ BitBoard BazuuBoard::mask_bishop_attacks_realtime(BoardSquares square_on_120_boa
   for (rank = std::to_underlying(bishop_rank) - 1, file = std::to_underlying(bishop_file) + 1;
        rank >= std::to_underlying(Rank::R1) && file <= std::to_underlying(File::H); rank--, file++) {
     bishop_piece_board = 0ULL;
-    bishop_piece_board |= 1ULL << (rank * 8 + file);
+    bishop_piece_board = 1ULL << (rank * 8 + file);
     attacks |= bishop_piece_board;
     if (bishop_piece_board & block) {
       break;
@@ -613,7 +670,7 @@ BitBoard BazuuBoard::mask_bishop_attacks_realtime(BoardSquares square_on_120_boa
   for (rank = std::to_underlying(bishop_rank) + 1, file = std::to_underlying(bishop_file) - 1;
        rank <= std::to_underlying(Rank::R8) && file >= std::to_underlying(File::A); rank++, file--) {
     bishop_piece_board = 0ULL;
-    bishop_piece_board |= 1ULL << (rank * 8 + file);
+    bishop_piece_board = 1ULL << (rank * 8 + file);
     attacks |= bishop_piece_board;
     if (bishop_piece_board & block) {
       break;
@@ -622,7 +679,7 @@ BitBoard BazuuBoard::mask_bishop_attacks_realtime(BoardSquares square_on_120_boa
   for (rank = std::to_underlying(bishop_rank) - 1, file = std::to_underlying(bishop_file) - 1;
        rank >= std::to_underlying(Rank::R1) && file >= std::to_underlying(File::A); rank--, file--) {
     bishop_piece_board = 0ULL;
-    bishop_piece_board |= 1ULL << (rank * 8 + file);
+    bishop_piece_board = 1ULL << (rank * 8 + file);
     attacks |= bishop_piece_board;
     if (bishop_piece_board & block) {
       break;
@@ -640,7 +697,7 @@ BitBoard BazuuBoard::mask_rook_attacks(BoardSquares square_on_120_board) {
   File rook_file;
   Rank rook_rank;
   std::tie(rook_file, rook_rank) = this->get_file_and_rank(square_on_120_board);
-  std::int8_t rank, file;
+  std::int8_t rank = 0, file = 0;
   BitBoard attacks = 0ULL;
   for (rank = std::to_underlying(rook_rank) + 1; rank <= std::to_underlying(Rank::R7); rank++) {
     attacks |= 1ULL << (rank * 8 + std::to_underlying(rook_file));
@@ -661,33 +718,33 @@ BitBoard BazuuBoard::mask_rook_attacks_realtime(BoardSquares square_on_120_board
   File rook_file;
   Rank rook_rank;
   std::tie(rook_file, rook_rank) = this->get_file_and_rank(square_on_120_board);
-  std::int8_t rank, file;
+  std::int8_t rank = 0, file = 0;
   BitBoard attacks = 0ULL;
   BitBoard rook_piece_board = 0ULL;
   for (rank = std::to_underlying(rook_rank) + 1; rank <= std::to_underlying(Rank::R8); rank++) {
     rook_piece_board = 0ULL;
-    rook_piece_board |= 1ULL << (rank * 8 + std::to_underlying(rook_file));
+    rook_piece_board = 1ULL << (rank * 8 + std::to_underlying(rook_file));
     attacks |= rook_piece_board;
     if (rook_piece_board & block)
       break;
   }
   for (rank = std::to_underlying(rook_rank) - 1; rank >= std::to_underlying(Rank::R1); rank--) {
     rook_piece_board = 0ULL;
-    rook_piece_board |= 1ULL << (rank * 8 + std::to_underlying(rook_file));
+    rook_piece_board = 1ULL << (rank * 8 + std::to_underlying(rook_file));
     attacks |= rook_piece_board;
     if (rook_piece_board & block)
       break;
   }
   for (file = std::to_underlying(rook_file) + 1; file <= std::to_underlying(File::H); file++) {
     rook_piece_board = 0ULL;
-    rook_piece_board |= 1ULL << (std::to_underlying(rook_rank) * 8 + file);
+    rook_piece_board = 1ULL << (std::to_underlying(rook_rank) * 8 + file);
     attacks |= rook_piece_board;
     if (rook_piece_board & block)
       break;
   }
   for (file = std::to_underlying(rook_file) - 1; file >= std::to_underlying(File::A); file--) {
     rook_piece_board = 0ULL;
-    rook_piece_board |= 1ULL << (std::to_underlying(rook_rank) * 8 + file);
+    rook_piece_board = 1ULL << (std::to_underlying(rook_rank) * 8 + file);
     attacks |= rook_piece_board;
     if (rook_piece_board & block)
       break;
@@ -731,6 +788,23 @@ BitBoard BazuuBoard::get_bishop_attacks(BoardSquares square_on_120_board) const 
   return this->bishop_attacks[std::to_underlying(square_on_120_board)];
 }
 
+BitBoard BazuuBoard::get_bishop_attacks_lookup(BoardSquares square_on_120_board, BitBoard occupancy) {
+  // Get the location of the pieces that blocks the bishop on the square_on_120_board.
+
+  std::uint8_t square_on_64_board = to_64_board_square(square_on_120_board);
+  occupancy &= this->bishop_attacks[std::to_underlying(square_on_120_board)];
+  occupancy *= this->bishop_magic_data[square_on_64_board].magic;
+  occupancy >>= this->bishop_magic_data[square_on_64_board].shift;
+  return this->bishop_attacks_realtime[square_on_64_board][occupancy];
+}
+BitBoard BazuuBoard::get_rook_attacks_lookup(BoardSquares square_on_120_board, BitBoard occupancy) {
+  std::uint8_t square_on_64_board = to_64_board_square(square_on_120_board);
+  occupancy &= this->rook_attacks[std::to_underlying(square_on_120_board)];
+  occupancy *= this->rook_magic_data[square_on_64_board].magic;
+  occupancy >>= this->rook_magic_data[square_on_64_board].shift;
+  return this->rook_attacks_realtime[square_on_64_board][occupancy];
+}
+
 /*
  * Get the rook attacks bit board for a given board square.
  * @param square_on_120_board board square on the 120 square board.
@@ -765,4 +839,83 @@ void BazuuBoard::reset() {
   std::memset(this->bitboards_for_sides, 0, sizeof(this->bitboards_for_sides));
   std::memset(this->sq_120_to_sq_64, this->INVALID_SQUARE_ON_64, sizeof(this->sq_120_to_sq_64));
   std::memset(this->sq_64_to_sq_120, std::to_underlying(BoardSquares::NO_SQ), sizeof(this->sq_64_to_sq_120));
+}
+
+// Utils
+void BazuuBoard::verify_all_magics() {
+  std::println("Verifying magic numbers...");
+
+  for (uint8_t sq = 0; sq < 64; sq++) {
+    BoardSquares sq_120 = to_120_board_square(sq);
+
+    // Verify rooks
+    {
+      uint8_t bits = rook_attack_mask_bits[sq];
+      uint16_t max_occ = 1 << bits;
+      BitBoard mask = mask_rook_attacks(sq_120);
+      std::map<uint64_t, BitBoard> index_to_attack;
+      uint16_t collisions = 0;
+
+      for (uint16_t i = 0; i < max_occ; i++) {
+        BitBoard occ = create_occupancy_board(i, bits, mask);
+        uint64_t idx = (occ * rook_magic_data[sq].magic) >> rook_magic_data[sq].shift;
+
+        if (idx >= 4096) {
+          std::println("❌ Rook sq {}: index {} out of bounds", sq, idx);
+          collisions++;
+          continue;
+        }
+
+        BitBoard attack = mask_rook_attacks_realtime(sq_120, occ);
+        auto it = index_to_attack.find(idx);
+
+        if (it == index_to_attack.end()) {
+          index_to_attack[idx] = attack;
+        } else if (it->second != attack) {
+          collisions++;
+        }
+      }
+
+      if (collisions > 0 || index_to_attack.size() != max_occ) {
+        std::println("❌ Rook sq {}: {} collisions, {} unique / {} total", sq, collisions, index_to_attack.size(),
+                     max_occ);
+      }
+    }
+
+    // Verify bishops
+    {
+      uint8_t bits = bishop_attack_mask_bits[sq];
+      uint16_t max_occ = 1 << bits;
+      BitBoard mask = mask_bishop_attacks(sq_120);
+      std::map<uint64_t, BitBoard> index_to_attack;
+      uint16_t collisions = 0;
+
+      for (uint16_t i = 0; i < max_occ; i++) {
+        BitBoard occ = create_occupancy_board(i, bits, mask);
+        uint64_t idx = (occ * bishop_magic_data[sq].magic) >> bishop_magic_data[sq].shift;
+
+        if (idx >= 512) {
+          std::println("❌ Bishop sq {}: index {} out of bounds", sq, idx);
+          collisions++;
+          continue;
+        }
+
+        BitBoard attack = mask_bishop_attacks_realtime(sq_120, occ);
+        auto it = index_to_attack.find(idx);
+
+        if (it == index_to_attack.end()) {
+          index_to_attack[idx] = attack;
+        } else if (it->second != attack) {
+          collisions++;
+        }
+      }
+
+      if (collisions > 0 || index_to_attack.size() != max_occ) {
+        std::println("❌ Bishop sq {}: {} collisions, {} unique / {} total", sq, collisions, index_to_attack.size(),
+                     max_occ);
+      }
+    }
+  }
+
+  std::println("✓ Magic verification complete!");
 }
