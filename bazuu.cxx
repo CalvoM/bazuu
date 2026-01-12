@@ -8,6 +8,9 @@ int main() {
   board->verify_all_magics();
   auto bb = board->occupancy();
   board->print_board();
+  board->print_bit_board(board->get_knight_attacks(BoardSquares::E4));
+  board->print_bit_board(board->get_king_attacks(BoardSquares::E4));
+  board->print_bit_board(board->get_pawn_attacks(Colours::White, BoardSquares::E4));
   board->print_bit_board(board->get_bishop_attacks_lookup(BoardSquares::E2, bb) &
                          board->side_occupancy(Colours::Black));
   board->print_bit_board(board->get_rook_attacks_lookup(BoardSquares::F1, bb));
