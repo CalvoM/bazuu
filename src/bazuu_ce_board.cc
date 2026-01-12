@@ -126,6 +126,20 @@ void BazuuBoard::update_piece_list() {
 }
 
 /*
+ * Update the bitboards of each side i.e. White and Black;
+ */
+void BazuuBoard::update_sides_bitboards() {
+  // Update for white side.
+  this->bitboards_for_sides[std::to_underlying(Colours::White)] = 0ULL;
+  this->bitboards_for_sides[std::to_underlying(Colours::Black)] = 0ULL;
+  for (int color = std::to_underlying(Colours::White); color < std::to_underlying(Colours::Both); color++) {
+    for (int piece = std::to_underlying(PieceType::P); piece < std::to_underlying(PieceType::Empty); piece++) {
+      this->bitboards_for_sides[color] |= this->bitboards_for_pieces[color][piece];
+    }
+  }
+}
+
+/*
  * Generate hash keys using mersenne twister.
  * @return zobrist hash key.
  */
@@ -142,6 +156,7 @@ ZobristKey BazuuBoard::generate_hash_keys() {
       }
     }
   }
+
   // Update key with side_hash_key
   key ^= zobrist->side_hash(this->game_state->active_side);
   // Update key with enpassant_hash_key
@@ -355,7 +370,7 @@ void BazuuBoard::setup_fen(const std::string fen_position) {
     }
   }
   pos++;
-  while (fen_position[pos] != ' ') {
+  while (fen_position[pos] != ' ' and pos < fen_position.length()) {
     token = fen_position[pos++];
     if (token == '-') {
       this->game_state->en_passant_square = BoardSquares::NO_SQ;
@@ -367,19 +382,24 @@ void BazuuBoard::setup_fen(const std::string fen_position) {
   }
   pos++;
   std::string half_move = "";
-  while (fen_position[pos] != ' ') {
+  while (pos < fen_position.length() and fen_position[pos] != ' ') {
     token = fen_position[pos++];
     half_move += token;
   }
-  this->game_state->ply_since_pawn_move = std::stoi(half_move);
+  if (half_move.length()) {
+    this->game_state->ply_since_pawn_move = std::stoi(half_move);
+  }
   pos += 1;
   std::string full_move = "";
   while (pos < fen_position.length()) {
     token = fen_position[pos++];
     full_move += token;
   }
-  this->game_state->total_moves = std::stoi(full_move);
+  if (full_move.length()) {
+    this->game_state->total_moves = std::stoi(full_move);
+  }
   this->update_piece_list();
+  this->update_sides_bitboards();
   this->game_state->zobrist_key = this->generate_hash_keys();
   return;
 }
@@ -486,7 +506,11 @@ void BazuuBoard::print_board() {
       for (int color = std::to_underlying(Colours::White); color < std::to_underlying(Colours::Both); color++) {
         for (int piece = std::to_underlying(PieceType::P); piece < std::to_underlying(PieceType::Empty); piece++) {
           if (this->bitboards_for_pieces[color][piece] & (1ULL << square_on_64_board)) {
+#if ASCII_ONLY
+            piece_char = AsciiPieceChars[color][piece];
+#else
             piece_char = PieceChars[color][piece];
+#endif
 
             std::print("{} ", piece_char);
             piece_found = true;
@@ -506,8 +530,10 @@ void BazuuBoard::print_board() {
   std::println("\x1b[0m\n");
   std::println("\x1B[0;32m Side to play\x1b[0m: \x1B[4;32m{}\x1b[0m:",
                ActiveSideRep[std::to_underlying(this->game_state->active_side)]);
-  std::println("\x1B[0;32m En-Passant Target:\x1b[0m: \x1B[4;32m{}\x1b[0m:",
-               std::to_underlying(this->game_state->en_passant_square));
+  std::uint8_t en_passant_square_64 = this->to_64_board_square(this->game_state->en_passant_square);
+  const char *en_passant_square_value =
+      en_passant_square_64 < 64 ? square_to_coordinates[en_passant_square_64] : "None";
+  std::println("\x1B[0;32m En-Passant Target:\x1b[0m: \x1B[4;32m{}\x1b[0m:", en_passant_square_value);
   std::println("\x1B[0;32m Hash Key of the position:\x1b[0m: \x1B[4;32m{}\x1b[0m:", this->game_state->zobrist_key);
 }
 
@@ -527,6 +553,9 @@ BitBoard BazuuBoard::get_bitboard_of_piece(PieceType piece, Colours colour) {
 BitBoard BazuuBoard::occupancy() const {
   return this->bitboards_for_sides[std::to_underlying(Colours::White)] |
          this->bitboards_for_sides[std::to_underlying(Colours::Black)];
+}
+BitBoard BazuuBoard::side_occupancy(Colours colour) const {
+  return this->bitboards_for_sides[std::to_underlying(colour)];
 }
 
 /*
@@ -803,6 +832,10 @@ BitBoard BazuuBoard::get_rook_attacks_lookup(BoardSquares square_on_120_board, B
   occupancy *= this->rook_magic_data[square_on_64_board].magic;
   occupancy >>= this->rook_magic_data[square_on_64_board].shift;
   return this->rook_attacks_realtime[square_on_64_board][occupancy];
+}
+BitBoard BazuuBoard::get_queen_attacks_lookup(BoardSquares square_on_120_board, BitBoard occupancy) {
+  return this->get_bishop_attacks_lookup(square_on_120_board, occupancy) |
+         this->get_rook_attacks_lookup(square_on_120_board, occupancy);
 }
 
 /*

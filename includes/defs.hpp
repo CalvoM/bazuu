@@ -1,7 +1,5 @@
 #ifndef DEFS_H_
 #define DEFS_H_
-#include <array>
-#include <atomic>
 #include <cstdint>
 #include <utility>
 using U64 = unsigned long long;
@@ -13,6 +11,18 @@ enum class Pieces : std::uint8_t { Empty = 0, wP, wN, wB, wR, wQ, wK, bP, bN, bB
 enum class PieceType : std::uint8_t { P = 0, N, B, R, Q, K, Empty };
 constexpr const char *PieceChars[2][std::to_underlying(PieceType::Empty)] = {{"♟", "♞", "♝", "♜", "♛", "♚"},
                                                                              {"♙", "♘", "♗", "♖", "♕", "♔"}};
+constexpr const char *AsciiPieceChars[2][std::to_underlying(PieceType::Empty)] = {{"P", "N", "B", "R", "Q", "K"},
+                                                                                  {"p", "n", "b", "r", "q", "k"}};
+constexpr const char *square_to_coordinates[] = {
+    "a1", "b1", "c1", "d1", "e1", "f1", "g1", "h1", // rank 1
+    "a2", "b2", "c2", "d2", "e2", "f2", "g2", "h2", // rank 2
+    "a3", "b3", "c3", "d3", "e3", "f3", "g3", "h3", // rank 3
+    "a4", "b4", "c4", "d4", "e4", "f4", "g4", "h4", // rank 4
+    "a5", "b5", "c5", "d5", "e5", "f5", "g5", "h5", // rank 5
+    "a6", "b6", "c6", "d6", "e6", "f6", "g6", "h6", // rank 6
+    "a7", "b7", "c7", "d7", "e7", "f7", "g7", "h7", // rank 7
+    "a8", "b8", "c8", "d8", "e8", "f8", "g8", "h8", // rank 8
+};
 enum class File : std::uint8_t { A = 0, B, C, D, E, F, G, H, NONE };
 enum class Rank : std::uint8_t { R1 = 0, R2, R3, R4, R5, R6, R7, R8, NONE };
 enum class Colours : std::uint8_t { White, Black, Both };
@@ -86,6 +96,10 @@ enum class BoardSquares : std::uint8_t {
 };
 enum class Turn : std::uint8_t { White, Black };
 enum class Castling : std::uint8_t { WhiteShort = 1, WhiteLong = 2, BlackShort = 4, BlackLong = 8 };
+constexpr const char *EMPTY_BOARD_FEN = "8/8/8/8/8/8/8/8 w - -";
+constexpr const char *TRICKY_BOARD_FEN = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1";
+constexpr const char *KILLER_BOARD_FEN = "rnbqkb1r/pp1p1pPp/8/2p1pP2/1P1P4/3P3P/P1P1P3/RNBQKBNR w KQkq e6 0 1";
+constexpr const char *CMK_BOARD_FEN = "r2q1rk1/ppp2ppp/2n1bn2/2b1p3/3pP3/3P1NPP/PPP1NPB1/R1BQ1RK1 b - - 0 9";
 // LERF mapping
 /*
  8  ♖ ♘ ♗ ♕ ♔ ♗ ♘ ♖

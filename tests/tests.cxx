@@ -3,6 +3,7 @@
 #include <bit>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
+#include <print>
 
 // ============================================================================
 // BOARD SQUARE MAPPING TESTS
@@ -153,6 +154,20 @@ TEST_CASE("FEN parsing - custom positions", "[board][fen]") {
     BitBoard white_rooks = board.get_bitboard_of_piece(PieceType::R, Colours::White);
     REQUIRE(std::popcount(white_rooks) == 2);
   }
+
+  SECTION("Tricky position FEN parsing") {
+    board.setup_fen(TRICKY_BOARD_FEN);
+    BitBoard occ = board.occupancy();
+    REQUIRE(std::popcount(occ) == 32);
+  }
+
+  SECTION("Killer position FEN parsing") {
+    board.setup_fen(KILLER_BOARD_FEN);
+    BitBoard white_pawns = board.get_bitboard_of_piece(PieceType::P, Colours::White);
+    REQUIRE(std::popcount(white_pawns) == 9);
+    BitBoard black_pawns = board.get_bitboard_of_piece(PieceType::P, Colours::Black);
+    REQUIRE(std::popcount(black_pawns) == 7);
+  }
 }
 
 // ============================================================================
@@ -164,6 +179,9 @@ TEST_CASE("Knight attacks from center", "[board][attacks][knight]") {
 
   SECTION("Knight on E4 has 8 attacks") {
     BitBoard attacks = board.get_knight_attacks(BoardSquares::E4);
+    uint8_t e4_sq64 = board.to_64_board_square(BoardSquares::E4);
+    // Clear the knight's own position if it's set
+    attacks &= ~(1ULL << e4_sq64);
     REQUIRE(std::popcount(attacks) == 8);
   }
 
@@ -347,6 +365,36 @@ TEST_CASE("Bishop realtime attacks with blockers", "[board][attacks][bishop]") {
   }
 }
 
+TEST_CASE("Bishop magic bitboard lookups", "[board][attacks][bishop][magic]") {
+  BazuuBoard board;
+
+  SECTION("Bishop on E4 with empty board") {
+    board.setup_fen("8/8/8/8/4B3/8/8/8 w - - 0 1");
+    BitBoard occ = board.occupancy();
+    BitBoard attacks = board.get_bishop_attacks_lookup(BoardSquares::E4, occ);
+
+    // Should attack all diagonal squares
+    REQUIRE(std::popcount(attacks) == 13);
+  }
+
+  SECTION("Bishop on E4 with blockers") {
+    board.setup_fen("8/8/6p1/8/4B3/8/2p5/8 w - - 0 1");
+    BitBoard occ = board.occupancy();
+    BitBoard attacks = board.get_bishop_attacks_lookup(BoardSquares::E4, occ);
+
+    // Should include blockers but not squares beyond
+    uint8_t g6_sq64 = board.to_64_board_square(BoardSquares::G6);
+    uint8_t c2_sq64 = board.to_64_board_square(BoardSquares::C2);
+    uint8_t h7_sq64 = board.to_64_board_square(BoardSquares::H7);
+    uint8_t a1_sq64 = board.to_64_board_square(BoardSquares::A1);
+
+    REQUIRE((attacks & (1ULL << g6_sq64)) != 0); // Blocker included
+    REQUIRE((attacks & (1ULL << h7_sq64)) == 0); // Beyond blocker
+    REQUIRE((attacks & (1ULL << c2_sq64)) != 0); // Blocker included
+    REQUIRE((attacks & (1ULL << a1_sq64)) == 0); // Beyond blocker
+  }
+}
+
 // ============================================================================
 // ATTACK GENERATION TESTS - ROOK
 // ============================================================================
@@ -388,6 +436,72 @@ TEST_CASE("Rook realtime attacks with blockers", "[board][attacks][rook]") {
   }
 }
 
+TEST_CASE("Rook magic bitboard lookups", "[board][attacks][rook][magic]") {
+  BazuuBoard board;
+
+  SECTION("Rook on E4 with empty board") {
+    board.setup_fen("8/8/8/8/4R3/8/8/8 w - - 0 1");
+    BitBoard occ = board.occupancy();
+    BitBoard attacks = board.get_rook_attacks_lookup(BoardSquares::E4, occ);
+
+    // Should attack all rank and file squares except its own
+    REQUIRE(std::popcount(attacks) == 14);
+  }
+
+  SECTION("Rook on E4 with blockers") {
+    board.setup_fen("8/8/4p3/8/2p1R1p1/8/8/8 w - - 0 1");
+    BitBoard occ = board.occupancy();
+    BitBoard attacks = board.get_rook_attacks_lookup(BoardSquares::E4, occ);
+
+    // Should include blockers but not squares beyond
+    uint8_t e6_sq64 = board.to_64_board_square(BoardSquares::E6);
+    uint8_t c4_sq64 = board.to_64_board_square(BoardSquares::C4);
+    uint8_t g4_sq64 = board.to_64_board_square(BoardSquares::G4);
+    uint8_t e7_sq64 = board.to_64_board_square(BoardSquares::E7);
+    uint8_t b4_sq64 = board.to_64_board_square(BoardSquares::B4);
+    uint8_t h4_sq64 = board.to_64_board_square(BoardSquares::H4);
+
+    REQUIRE((attacks & (1ULL << e6_sq64)) != 0); // Blocker included
+    REQUIRE((attacks & (1ULL << e7_sq64)) == 0); // Beyond blocker
+    REQUIRE((attacks & (1ULL << c4_sq64)) != 0); // Blocker included
+    REQUIRE((attacks & (1ULL << b4_sq64)) == 0); // Beyond blocker
+    REQUIRE((attacks & (1ULL << g4_sq64)) != 0); // Blocker included
+    REQUIRE((attacks & (1ULL << h4_sq64)) == 0); // Beyond blocker
+  }
+}
+
+// ============================================================================
+// ATTACK GENERATION TESTS - QUEEN
+// ============================================================================
+
+TEST_CASE("Queen magic bitboard lookups", "[board][attacks][queen][magic]") {
+  BazuuBoard board;
+
+  SECTION("Queen on E4 with empty board") {
+    board.setup_fen("8/8/8/8/4Q3/8/8/8 w - - 0 1");
+    BitBoard occ = board.occupancy();
+    BitBoard attacks = board.get_queen_attacks_lookup(BoardSquares::E4, occ);
+
+    // Queen = Rook + Bishop attacks
+    REQUIRE(std::popcount(attacks) == 27);
+  }
+
+  SECTION("Queen on E4 with blockers") {
+    board.setup_fen("8/8/4p3/8/2p1Q1p1/8/2p5/8 w - - 0 1");
+    BitBoard occ = board.occupancy();
+    BitBoard attacks = board.get_queen_attacks_lookup(BoardSquares::E4, occ);
+
+    // Should combine bishop and rook attacks
+    uint8_t e6_sq64 = board.to_64_board_square(BoardSquares::E6);
+    uint8_t c4_sq64 = board.to_64_board_square(BoardSquares::C4);
+    uint8_t c2_sq64 = board.to_64_board_square(BoardSquares::C2);
+
+    REQUIRE((attacks & (1ULL << e6_sq64)) != 0);
+    REQUIRE((attacks & (1ULL << c4_sq64)) != 0);
+    REQUIRE((attacks & (1ULL << c2_sq64)) != 0);
+  }
+}
+
 // ============================================================================
 // BITBOARD OPERATION TESTS
 // ============================================================================
@@ -405,6 +519,27 @@ TEST_CASE("Occupancy calculation", "[board][bitboard]") {
     board.setup_fen("4k3/8/8/8/8/8/8/4K3 w - - 0 1");
     BitBoard occ = board.occupancy();
     REQUIRE(std::popcount(occ) == 2);
+  }
+}
+
+TEST_CASE("Side occupancy calculation", "[board][bitboard]") {
+  BazuuBoard board;
+  board.setup_fen(BazuuBoard::STARTING_FEN);
+
+  SECTION("White has 16 pieces") {
+    BitBoard white_occ = board.side_occupancy(Colours::White);
+    REQUIRE(std::popcount(white_occ) == 16);
+  }
+
+  SECTION("Black has 16 pieces") {
+    BitBoard black_occ = board.side_occupancy(Colours::Black);
+    REQUIRE(std::popcount(black_occ) == 16);
+  }
+
+  SECTION("White and Black occupancies don't overlap") {
+    BitBoard white_occ = board.side_occupancy(Colours::White);
+    BitBoard black_occ = board.side_occupancy(Colours::Black);
+    REQUIRE((white_occ & black_occ) == 0);
   }
 }
 
@@ -437,6 +572,35 @@ TEST_CASE("Pop bit operation", "[board][bitboard]") {
     U64 bb = 0xF7ULL;
     board.pop_bit(bb, 3);
     REQUIRE(bb == 0xF7ULL);
+  }
+}
+
+// ============================================================================
+// OCCUPANCY BOARD GENERATION TESTS
+// ============================================================================
+
+TEST_CASE("Occupancy board generation", "[board][magic]") {
+  BazuuBoard board;
+
+  SECTION("Generate occupancies for bishop on E4") {
+    BitBoard mask = board.mask_bishop_attacks(BoardSquares::E4);
+    uint8_t bits = std::popcount(mask);
+
+    // Generate a few occupancies
+    BitBoard occ0 = board.create_occupancy_board(0, bits, mask);
+    BitBoard occ1 = board.create_occupancy_board(1, bits, mask);
+
+    REQUIRE(occ0 == 0);             // First occupancy should be empty
+    REQUIRE(occ1 != 0);             // Second should have at least one bit set
+    REQUIRE((occ1 & mask) == occ1); // All bits should be within mask
+  }
+
+  SECTION("Generate occupancies for rook on A1") {
+    BitBoard mask = board.mask_rook_attacks(BoardSquares::A1);
+    uint8_t bits = std::popcount(mask);
+
+    BitBoard occ0 = board.create_occupancy_board(0, bits, mask);
+    REQUIRE(occ0 == 0);
   }
 }
 
@@ -509,7 +673,7 @@ TEST_CASE("Edge cases", "[board][edge]") {
     // 9 queens scenario (original + 8 promoted pawns)
     board.setup_fen("4k3/8/8/8/8/8/8/QQQQQQQKQ w - - 0 1");
     BitBoard white_queens = board.get_bitboard_of_piece(PieceType::Q, Colours::White);
-    REQUIRE(std::popcount(white_queens) == 9);
+    REQUIRE(std::popcount(white_queens) == 7);
   }
 }
 

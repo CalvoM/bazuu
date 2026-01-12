@@ -35,6 +35,11 @@ target_compile_options(bazuu_lib
     -Wpedantic
 )
 
+option(WITH_ASCII_ONLY "No Unicode Support" OFF)
+target_compile_definitions(bazuu_lib
+  PRIVATE
+  ASCII_ONLY=$<BOOL:${WITH_ASCII_ONLY}>
+)
 # Speed-focused optimizations
 target_compile_options(bazuu_lib
   PRIVATE
