@@ -180,17 +180,12 @@ TEST_CASE("Knight attacks from center", "[board][attacks][knight]") {
   SECTION("Knight on E4 has 8 attacks") {
     BitBoard attacks = board.get_knight_attacks(BoardSquares::E4);
     uint8_t e4_sq64 = board.to_64_board_square(BoardSquares::E4);
-    // Clear the knight's own position if it's set
-    attacks &= ~(1ULL << e4_sq64);
     REQUIRE(std::popcount(attacks) == 8);
   }
 
   SECTION("Knight on E4 attacks correct squares") {
     BitBoard attacks = board.get_knight_attacks(BoardSquares::E4);
     uint8_t e4_sq64 = board.to_64_board_square(BoardSquares::E4);
-
-    // Clear the knight's own position if it's set
-    attacks &= ~(1ULL << e4_sq64);
 
     // Expected attacks: d2, f2, c3, g3, c5, g5, d6, f6
     std::vector<BoardSquares> expected = {BoardSquares::D2, BoardSquares::F2, BoardSquares::C3, BoardSquares::G3,
@@ -209,14 +204,12 @@ TEST_CASE("Knight attacks from corner", "[board][attacks][knight]") {
   SECTION("Knight on A1 has 2 attacks") {
     BitBoard attacks = board.get_knight_attacks(BoardSquares::A1);
     uint8_t a1_sq64 = board.to_64_board_square(BoardSquares::A1);
-    attacks &= ~(1ULL << a1_sq64);
     REQUIRE(std::popcount(attacks) == 2);
   }
 
   SECTION("Knight on H8 has 2 attacks") {
     BitBoard attacks = board.get_knight_attacks(BoardSquares::H8);
     uint8_t h8_sq64 = board.to_64_board_square(BoardSquares::H8);
-    attacks &= ~(1ULL << h8_sq64);
     REQUIRE(std::popcount(attacks) == 2);
   }
 }
@@ -227,14 +220,12 @@ TEST_CASE("Knight attacks from edge", "[board][attacks][knight]") {
   SECTION("Knight on A4 has 4 attacks") {
     BitBoard attacks = board.get_knight_attacks(BoardSquares::A4);
     uint8_t a4_sq64 = board.to_64_board_square(BoardSquares::A4);
-    attacks &= ~(1ULL << a4_sq64);
     REQUIRE(std::popcount(attacks) == 4);
   }
 
   SECTION("Knight on E1 has 4 attacks") {
     BitBoard attacks = board.get_knight_attacks(BoardSquares::E1);
     uint8_t e1_sq64 = board.to_64_board_square(BoardSquares::E1);
-    attacks &= ~(1ULL << e1_sq64);
     REQUIRE(std::popcount(attacks) == 4);
   }
 }
@@ -249,7 +240,6 @@ TEST_CASE("King attacks from center", "[board][attacks][king]") {
   SECTION("King on E4 has 8 attacks") {
     BitBoard attacks = board.get_king_attacks(BoardSquares::E4);
     uint8_t e4_sq64 = board.to_64_board_square(BoardSquares::E4);
-    attacks &= ~(1ULL << e4_sq64);
     REQUIRE(std::popcount(attacks) == 8);
   }
 }
@@ -260,14 +250,12 @@ TEST_CASE("King attacks from corner", "[board][attacks][king]") {
   SECTION("King on A1 has 3 attacks") {
     BitBoard attacks = board.get_king_attacks(BoardSquares::A1);
     uint8_t a1_sq64 = board.to_64_board_square(BoardSquares::A1);
-    attacks &= ~(1ULL << a1_sq64);
     REQUIRE(std::popcount(attacks) == 3);
   }
 
   SECTION("King on H8 has 3 attacks") {
     BitBoard attacks = board.get_king_attacks(BoardSquares::H8);
     uint8_t h8_sq64 = board.to_64_board_square(BoardSquares::H8);
-    attacks &= ~(1ULL << h8_sq64);
     REQUIRE(std::popcount(attacks) == 3);
   }
 }
@@ -278,7 +266,6 @@ TEST_CASE("King attacks from edge", "[board][attacks][king]") {
   SECTION("King on E1 has 5 attacks") {
     BitBoard attacks = board.get_king_attacks(BoardSquares::E1);
     uint8_t e1_sq64 = board.to_64_board_square(BoardSquares::E1);
-    attacks &= ~(1ULL << e1_sq64);
     REQUIRE(std::popcount(attacks) == 5);
   }
 }
@@ -293,7 +280,6 @@ TEST_CASE("White pawn attacks", "[board][attacks][pawn]") {
   SECTION("White pawn on E4 attacks D5 and F5") {
     BitBoard attacks = board.get_pawn_attacks(Colours::White, BoardSquares::E4);
     uint8_t e4_sq64 = board.to_64_board_square(BoardSquares::E4);
-    attacks &= ~(1ULL << e4_sq64);
     REQUIRE(std::popcount(attacks) == 2);
 
     uint8_t d5_sq64 = board.to_64_board_square(BoardSquares::D5);
@@ -305,14 +291,12 @@ TEST_CASE("White pawn attacks", "[board][attacks][pawn]") {
   SECTION("White pawn on A4 attacks only B5") {
     BitBoard attacks = board.get_pawn_attacks(Colours::White, BoardSquares::A4);
     uint8_t a4_sq64 = board.to_64_board_square(BoardSquares::A4);
-    attacks &= ~(1ULL << a4_sq64);
     REQUIRE(std::popcount(attacks) == 1);
   }
 
   SECTION("White pawn on H4 attacks only G5") {
     BitBoard attacks = board.get_pawn_attacks(Colours::White, BoardSquares::H4);
     uint8_t h4_sq64 = board.to_64_board_square(BoardSquares::H4);
-    attacks &= ~(1ULL << h4_sq64);
     REQUIRE(std::popcount(attacks) == 1);
   }
 }
@@ -323,7 +307,6 @@ TEST_CASE("Black pawn attacks", "[board][attacks][pawn]") {
   SECTION("Black pawn on E5 attacks D4 and F4") {
     BitBoard attacks = board.get_pawn_attacks(Colours::Black, BoardSquares::E5);
     uint8_t e5_sq64 = board.to_64_board_square(BoardSquares::E5);
-    attacks &= ~(1ULL << e5_sq64);
     REQUIRE(std::popcount(attacks) == 2);
 
     uint8_t d4_sq64 = board.to_64_board_square(BoardSquares::D4);

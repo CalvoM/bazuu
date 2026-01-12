@@ -596,6 +596,9 @@ BitBoard BazuuBoard::mask_knight_attacks(BoardSquares square_on_120_board) {
   attacks |= knight_pos >> 15 & this->NOT_A_FILE;
   attacks |= knight_pos >> 10 & this->NOT_GH_FILES;
   attacks |= knight_pos >> 6 & this->NOT_AB_FILES;
+
+  // Clear the knight position
+  attacks &= ~(knight_pos);
   return attacks;
 }
 
@@ -619,6 +622,9 @@ BitBoard BazuuBoard::mask_king_attacks(BoardSquares square_on_120_board) {
   attacks |= king_pos >> 7 & this->NOT_A_FILE;
   attacks |= king_pos >> 8;
   attacks |= king_pos >> 9 & this->NOT_H_FILE;
+
+  // Clear the king position
+  attacks &= ~(king_pos);
   return attacks;
 }
 
@@ -639,6 +645,9 @@ BitBoard BazuuBoard::mask_pawn_attacks(Colours side, BoardSquares square_on_120_
     attacks |= pawn_pos >> 7 & this->NOT_A_FILE;
     attacks |= pawn_pos >> 9 & this->NOT_H_FILE;
   }
+
+  // Clear the pawn position
+  attacks &= ~(pawn_pos);
   return attacks;
 }
 
