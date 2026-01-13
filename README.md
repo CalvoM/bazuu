@@ -1,5 +1,7 @@
 # bazuu
 
+[![Testing chess engine](https://github.com/CalvoM/bazuu/actions/workflows/ci-test.yml/badge.svg)](https://github.com/CalvoM/bazuu/actions/workflows/ci-test.yml)
+
 Hobby chess engine, because why not?
 
 ## Roadmap from Oct 2025
