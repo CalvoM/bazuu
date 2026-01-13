@@ -68,6 +68,7 @@ public:
   void print_square_layout();
   void print_bit_board(BitBoard bit_board);
   void print_board();
+  void print_attacked_squares(Colours attacking_colour);
   void setup_fen(const std::string fen_position = STARTING_FEN);
   ZobristKey generate_hash_keys();
   std::uint8_t to_64_board_square(BoardSquares square_on_120_board) const;
@@ -91,9 +92,10 @@ public:
   BitBoard create_occupancy_board(std::uint16_t occupancy_index, std::uint8_t bits_in_mask, BitBoard attack_mask);
   BoardSquares king_square(Colours colour) const;
   bool has_bishop_pair(Colours colour);
+  bool is_square_attacked(BoardSquares square, Colours attacking_colour);
   std::pair<File, Rank> get_file_and_rank(BoardSquares square_on_120_board) const;
   U64 generate_magic_number();
-  U64 find_magic_number(BoardSquares square, std::uint8_t attack_mask_bits, PieceType piece);
+  U64 find_magic_number(BoardSquares square_on_120_board, std::uint8_t attack_mask_bits, PieceType piece);
   void init_magic_numbers();
   void reset();
   void verify_all_magics();

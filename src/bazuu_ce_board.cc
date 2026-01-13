@@ -487,6 +487,26 @@ void BazuuBoard::print_bit_board(BitBoard bit_board) {
   std::println("\n");
 }
 
+void BazuuBoard::print_attacked_squares(Colours attacking_colour) {
+  BoardSquares square_on_120_board = BoardSquares::A1;
+  std::println("\n");
+  std::println("+---+---+---+---+---+---+---+---+");
+  for (int rank = std::to_underlying(Rank::R8); rank >= std::to_underlying(Rank::R1); --rank) {
+    for (int file = std::to_underlying(File::A); file <= std::to_underlying(File::H); ++file) {
+      square_on_120_board = this->file_rank_to_120_board(static_cast<File>(file), static_cast<Rank>(rank));
+      if (this->is_square_attacked(square_on_120_board, attacking_colour)) {
+        std::cout << "| X ";
+      } else {
+        std::cout << "|   ";
+      }
+    }
+    std::println("| {}", rank + 1);
+    std::println("+---+---+---+---+---+---+---+---+");
+  }
+  std::println("  a   b   c   d   e   f   g   h");
+  std::println("\n");
+}
+
 /*
  * Prints the current state of the board.
  */
@@ -868,6 +888,34 @@ BitBoard BazuuBoard::create_occupancy_board(std::uint16_t occupancy_index, std::
     }
   }
   return occupancy;
+}
+bool BazuuBoard::is_square_attacked(BoardSquares square_on_120_board, Colours attacking_colour) {
+  // Pawns attack from opposite color's perspective
+  Colours pawn_perspective = (attacking_colour == Colours::White) ? Colours::Black : Colours::White;
+  BitBoard occupancy = this->occupancy();
+
+  if (this->pawn_attacks[std::to_underlying(pawn_perspective)][std::to_underlying(square_on_120_board)] &
+      this->bitboards_for_pieces[std::to_underlying(attacking_colour)][std::to_underlying(PieceType::P)])
+    return true;
+
+  // All other pieces are identical for both colors
+  if (knight_attacks[std::to_underlying(square_on_120_board)] &
+      this->bitboards_for_pieces[std::to_underlying(attacking_colour)][std::to_underlying(PieceType::N)])
+    return true;
+  if (this->get_bishop_attacks_lookup(square_on_120_board, occupancy) &
+      this->bitboards_for_pieces[std::to_underlying(attacking_colour)][std::to_underlying(PieceType::B)])
+    return true;
+  if (this->get_rook_attacks_lookup(square_on_120_board, occupancy) &
+      this->bitboards_for_pieces[std::to_underlying(attacking_colour)][std::to_underlying(PieceType::R)])
+    return true;
+  if (this->get_queen_attacks_lookup(square_on_120_board, occupancy) &
+      this->bitboards_for_pieces[std::to_underlying(attacking_colour)][std::to_underlying(PieceType::Q)])
+    return true;
+  if (king_attacks[std::to_underlying(square_on_120_board)] &
+      this->bitboards_for_pieces[std::to_underlying(attacking_colour)][std::to_underlying(PieceType::K)])
+    return true;
+
+  return false;
 }
 /*
  * Reset the chess board.
