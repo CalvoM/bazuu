@@ -6,11 +6,9 @@
 #include <bazuu_ce_zobrist.hpp>
 #include <cstdint>
 #include <defs.hpp>
-#include <map>
 #include <memory>
 #include <print>
 #include <prng.hpp>
-#include <set>
 #include <string>
 #include <utility>
 
@@ -27,18 +25,6 @@ public:
   static constexpr std::uint8_t BOARD_64_OFFSET = 21;
   static constexpr std::uint8_t INVALID_SQUARE_ON_64 = 64;
   static const std::string STARTING_FEN;
-  static constexpr U64 A_FILE = 0x0101010101010101;
-  static constexpr U64 H_FILE = 0x8080808080808080;
-  static constexpr U64 RANK_1 = 0x00000000000000FF;
-  static constexpr U64 RANK_8 = 0xFF00000000000000;
-  static constexpr U64 A1_H8_DIAG = 0x8040201008040201;
-  static constexpr U64 H1_A8_DIAG = 0x0102040810204080;
-  static constexpr U64 LIGHT_SQUARE = 0x55AA55AA55AA55AA;
-  static constexpr U64 DARK_SQUARE = 0xAA55AA55AA55AA55;
-  static constexpr U64 NOT_A_FILE = 0xfefefefefefefefe; // ~0x0101010101010101
-  static constexpr U64 NOT_H_FILE = 0x7f7f7f7f7f7f7f7f; // ~0x8080808080808080
-  static constexpr U64 NOT_AB_FILES = 0xfcfcfcfcfcfcfcfc;
-  static constexpr U64 NOT_GH_FILES = 0x3f3f3f3f3f3f3f3f;
   static constexpr std::uint8_t bishop_attack_mask_bits[64] = {
       6, 5, 5, 5, 5, 5, 5, 6, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 7, 7, 7, 7, 5, 5, 5, 5, 7, 9, 9, 7, 5, 5,
       5, 5, 7, 9, 9, 7, 5, 5, 5, 5, 7, 7, 7, 7, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 5, 5, 5, 5, 5, 5, 6};
@@ -99,6 +85,7 @@ public:
   void init_magic_numbers();
   void reset();
   void verify_all_magics();
+  void generate_moves();
   constexpr inline void pop_bit(U64 &bb, int bit) noexcept { bb &= ~(1ULL << bit); }
 
 private:

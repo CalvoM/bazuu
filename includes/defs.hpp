@@ -113,17 +113,4 @@ constexpr const char *CMK_BOARD_FEN = "r2q1rk1/ppp2ppp/2n1bn2/2b1p3/3pP3/3P1NPP/
     a b c d e f g h
 */
 
-// LERF ROSE COMPASS
-/*
- northwest    north   northeast
- noWe         nort         noEa
-         +7    +8    +9
-             \  |  /
- west    -1 <-  0 -> +1    east
-             /  |  \
-         -9    -8    -7
- soWe         sout         soEa
- southwest    south   southeast
-*/
-
 #endif
