@@ -1,4 +1,5 @@
 #include "bazuu_ce_board.hpp"
+#include "bazuu_bitboard_ops.hpp"
 #include "bazuu_ce_zobrist.hpp"
 #include "bazuu_magic_data.hpp"
 #include "defs.hpp"
@@ -11,9 +12,11 @@
 #include <cstring>
 #include <iomanip>
 #include <iostream>
+#include <map>
 #include <memory>
 #include <print>
 #include <prng.hpp>
+#include <set>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -607,15 +610,15 @@ BitBoard BazuuBoard::mask_knight_attacks(BoardSquares square_on_120_board) {
   BitBoard knight_pos = 1ULL << square_on_64_board;
   BitBoard attacks = knight_pos;
   // Front
-  attacks |= knight_pos << 17 & this->NOT_A_FILE;
-  attacks |= knight_pos << 15 & this->NOT_H_FILE;
-  attacks |= knight_pos << 10 & this->NOT_AB_FILES;
-  attacks |= knight_pos << 6 & this->NOT_GH_FILES;
+  attacks |= knight_pos << 17 & BazuuBitBoardOps::NOT_A_FILE;
+  attacks |= knight_pos << 15 & BazuuBitBoardOps::NOT_H_FILE;
+  attacks |= knight_pos << 10 & BazuuBitBoardOps::NOT_AB_FILES;
+  attacks |= knight_pos << 6 & BazuuBitBoardOps::NOT_GH_FILES;
   // Back
-  attacks |= knight_pos >> 17 & this->NOT_H_FILE;
-  attacks |= knight_pos >> 15 & this->NOT_A_FILE;
-  attacks |= knight_pos >> 10 & this->NOT_GH_FILES;
-  attacks |= knight_pos >> 6 & this->NOT_AB_FILES;
+  attacks |= knight_pos >> 17 & BazuuBitBoardOps::NOT_H_FILE;
+  attacks |= knight_pos >> 15 & BazuuBitBoardOps::NOT_A_FILE;
+  attacks |= knight_pos >> 10 & BazuuBitBoardOps::NOT_GH_FILES;
+  attacks |= knight_pos >> 6 & BazuuBitBoardOps::NOT_AB_FILES;
 
   // Clear the knight position
   attacks &= ~(knight_pos);
@@ -632,16 +635,16 @@ BitBoard BazuuBoard::mask_king_attacks(BoardSquares square_on_120_board) {
   BitBoard king_pos = 1ULL << square_on_64_board;
   BitBoard attacks = king_pos;
   // Front
-  attacks |= king_pos << 7 & this->NOT_H_FILE;
+  attacks |= king_pos << 7 & BazuuBitBoardOps::NOT_H_FILE;
   attacks |= king_pos << 8;
-  attacks |= king_pos << 9 & this->NOT_A_FILE;
+  attacks |= king_pos << 9 & BazuuBitBoardOps::NOT_A_FILE;
   // Side
-  attacks |= king_pos << 1 & this->NOT_A_FILE;
-  attacks |= king_pos >> 1 & this->NOT_H_FILE;
+  attacks |= king_pos << 1 & BazuuBitBoardOps::NOT_A_FILE;
+  attacks |= king_pos >> 1 & BazuuBitBoardOps::NOT_H_FILE;
   // Back
-  attacks |= king_pos >> 7 & this->NOT_A_FILE;
+  attacks |= king_pos >> 7 & BazuuBitBoardOps::NOT_A_FILE;
   attacks |= king_pos >> 8;
-  attacks |= king_pos >> 9 & this->NOT_H_FILE;
+  attacks |= king_pos >> 9 & BazuuBitBoardOps::NOT_H_FILE;
 
   // Clear the king position
   attacks &= ~(king_pos);
@@ -659,11 +662,11 @@ BitBoard BazuuBoard::mask_pawn_attacks(Colours side, BoardSquares square_on_120_
   BitBoard pawn_pos = 1ULL << square_on_64_board;
   BitBoard attacks = pawn_pos;
   if (side == Colours::White) {
-    attacks |= pawn_pos << 7 & this->NOT_H_FILE;
-    attacks |= pawn_pos << 9 & this->NOT_A_FILE;
+    attacks |= pawn_pos << 7 & BazuuBitBoardOps::NOT_H_FILE;
+    attacks |= pawn_pos << 9 & BazuuBitBoardOps::NOT_A_FILE;
   } else if (side == Colours::Black) {
-    attacks |= pawn_pos >> 7 & this->NOT_A_FILE;
-    attacks |= pawn_pos >> 9 & this->NOT_H_FILE;
+    attacks |= pawn_pos >> 7 & BazuuBitBoardOps::NOT_A_FILE;
+    attacks |= pawn_pos >> 9 & BazuuBitBoardOps::NOT_H_FILE;
   }
 
   // Clear the pawn position
@@ -916,6 +919,42 @@ bool BazuuBoard::is_square_attacked(BoardSquares square_on_120_board, Colours at
     return true;
 
   return false;
+}
+
+void BazuuBoard::generate_moves() {
+  if (this->game_state->active_side == Colours::White) {
+    // Get White Pawns Push Targets
+    BitBoard whitePawns = this->get_bitboard_of_piece(PieceType::P, Colours::White);
+    this->print_bit_board(BazuuBitBoardOps::WhiteSinglePushTargets(whitePawns, ~this->occupancy()));
+    this->print_bit_board(BazuuBitBoardOps::WhiteDoublePushTargets(whitePawns, ~this->occupancy()));
+    this->print_bit_board(BazuuBitBoardOps::WhitePromotionTargets(whitePawns, ~this->occupancy()));
+    // Get White Pawns Attack Targets
+    this->print_bit_board(BazuuBitBoardOps::WhitePawnAttacksTargets(whitePawns, this->side_occupancy(Colours::Black)));
+    this->print_bit_board(
+        BazuuBitBoardOps::WhitePawnAttacksWithPromotionTargets(whitePawns, this->side_occupancy(Colours::Black)));
+
+    if (this->game_state->en_passant_square != BoardSquares::NO_SQ) {
+      std::println("en_passant_square");
+      this->print_bit_board(BazuuBitBoardOps::WhitePawnPossibleAttacksTargets(whitePawns) &
+                            (1ULL << this->to_64_board_square(this->game_state->en_passant_square)));
+    }
+
+  } else if (this->game_state->active_side == Colours::Black) {
+    // Get Black Pawns Push Targets
+    BitBoard blackPawns = this->get_bitboard_of_piece(PieceType::P, Colours::Black);
+    this->print_bit_board(BazuuBitBoardOps::BlackSinglePushTargets(blackPawns, ~this->occupancy()));
+    this->print_bit_board(BazuuBitBoardOps::BlackDoublePushTargets(blackPawns, ~this->occupancy()));
+    this->print_bit_board(BazuuBitBoardOps::BlackPromotionTargets(blackPawns, ~this->occupancy()));
+    // Get Black Attack Targets
+    this->print_bit_board(BazuuBitBoardOps::BlackPawnAttacksTargets(blackPawns, this->side_occupancy(Colours::White)));
+    this->print_bit_board(
+        BazuuBitBoardOps::BlackPawnAttacksWithPromotionTargets(blackPawns, this->side_occupancy(Colours::White)));
+
+    if (this->game_state->en_passant_square != BoardSquares::NO_SQ) {
+      this->print_bit_board(BazuuBitBoardOps::BlackPawnPossibleAttacksTargets(blackPawns) &
+                            (1ULL << this->to_64_board_square(this->game_state->en_passant_square)));
+    }
+  }
 }
 /*
  * Reset the chess board.

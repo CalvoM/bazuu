@@ -1,3 +1,4 @@
+#include "bazuu_bitboard_ops.hpp"
 #include "defs.hpp"
 #include <bazuu_ce_board.hpp>
 #include <memory>
@@ -5,10 +6,9 @@
 
 int main() {
   std::unique_ptr<BazuuBoard> board = std::make_unique<BazuuBoard>();
-  board->setup_fen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
+  board->setup_fen("rnbqkbnr/pp2p1p1/2p5/3pPp2/3P2Pp/2N2N2/PPP2P1P/R1BQKB1R b KQkq g3 0 6");
   board->verify_all_magics();
   board->print_board();
-  std::println("{}", board->is_square_attacked(BoardSquares::F6, Colours::White));
-  board->print_attacked_squares(Colours::Black);
+  board->generate_moves();
   return 0;
 }
