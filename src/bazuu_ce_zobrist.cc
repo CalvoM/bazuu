@@ -3,7 +3,7 @@
 #include <random>
 #include <utility>
 
-BazuuZobrist::BazuuZobrist() {}
+BazuuZobrist::BazuuZobrist() { this->init(); }
 /*
  * Initializes the Zobristkey hash and generates the keys.
  */
@@ -31,8 +31,11 @@ void BazuuZobrist::init() {
   }
 
   // Let us hash the enpassant positions.
-  for (int f = std::to_underlying(File::A); f < std::to_underlying(File::NONE); f++) {
-    this->enpassant_hash_key[f] = side_hash();
+  for (Rank rank : {Rank::R3, Rank::R6}) {
+    for (int file = std::to_underlying(File::A); file <= std::to_underlying(File::H); ++file) {
+      auto sq = file_rank_to_120_board(static_cast<File>(file), rank);
+      this->enpassant_hash_key[std::to_underlying(sq)] = side_hash();
+    }
   }
 }
 

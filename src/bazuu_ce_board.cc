@@ -25,7 +25,6 @@ const std::string BazuuBoard::STARTING_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP
 
 BazuuBoard::BazuuBoard() {
   this->zobrist = std::make_shared<BazuuZobrist>();
-  this->zobrist->init();
   this->game_state = std::make_shared<BazuuGameState>();
   this->init_board_squares();
   this->game_state->zobrist_key = this->generate_hash_keys();

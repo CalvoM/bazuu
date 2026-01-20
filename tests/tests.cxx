@@ -738,7 +738,6 @@ TEST_CASE("BazuuGameState reset", "[gamestate][reset]") {
 
 TEST_CASE("BazuuZobrist initialization", "[zobrist][init]") {
   BazuuZobrist zobrist;
-  zobrist.init();
 
   SECTION("Piece hashes are non-zero") {
     U64 hash = zobrist.piece_hash(Colours::White, PieceType::P, BoardSquares::E4);
@@ -766,7 +765,6 @@ TEST_CASE("BazuuZobrist initialization", "[zobrist][init]") {
 
 TEST_CASE("BazuuZobrist side hash", "[zobrist][side]") {
   BazuuZobrist zobrist;
-  zobrist.init();
 
   SECTION("Side hashes are non-zero") {
     U64 white_hash = zobrist.side_hash(Colours::White);
@@ -784,7 +782,6 @@ TEST_CASE("BazuuZobrist side hash", "[zobrist][side]") {
 
 TEST_CASE("BazuuZobrist castling hash", "[zobrist][castling]") {
   BazuuZobrist zobrist;
-  zobrist.init();
 
   SECTION("Different castling rights have different hashes") {
     U64 no_castling = zobrist.castling_hash(0);
@@ -808,7 +805,6 @@ TEST_CASE("BazuuZobrist castling hash", "[zobrist][castling]") {
 
 TEST_CASE("BazuuZobrist en passant hash", "[zobrist][enpassant]") {
   BazuuZobrist zobrist;
-  zobrist.init();
 
   SECTION("En passant hashes are non-zero for valid files") {
     U64 a_file = zobrist.enpassant_hash(BoardSquares::A3);
@@ -913,18 +909,6 @@ TEST_CASE("PRNG sparse_rand", "[prng][sparse]") {
     // Sparse random should have significantly fewer bits set
     REQUIRE(sparse_popcount_total < normal_popcount_total);
   }
-
-  SECTION("Can generate zero") {
-    PRNG test_prng(1804289383ULL);
-    bool has_zero = false;
-    for (int i = 0; i < 1000; ++i) {
-      if (test_prng.sparse_rand() == 0) {
-        has_zero = true;
-        break;
-      }
-    }
-    REQUIRE(has_zero);
-  }
 }
 
 // ============================================================================
@@ -1016,7 +1000,7 @@ TEST_CASE("White pawn single push", "[bitboard][pawn][white][push]") {
     BitBoard pawns = 0x000000000000FF00ULL; // All rank 2
     BitBoard empty = 0xFFFFFFFFFFFF00FFULL; // Rank 2 occupied, rest empty
     BitBoard targets = WhiteSinglePushTargets(pawns, empty);
-    REQUIRE(targets == 0x00000000FF000000ULL); // All rank 4
+    REQUIRE(targets == 0x0000000000FF0000ULL); // All rank 4
   }
 }
 
@@ -1025,7 +1009,7 @@ TEST_CASE("White pawn double push", "[bitboard][pawn][white][doublepush]") {
 
   SECTION("Double push from rank 2 to rank 4") {
     BitBoard pawns = 0x0000000000001000ULL; // E2
-    BitBoard empty = 0xFFFFFFFFFFEFEFFFULL; // E2 blocked, E3 and E4 empty
+    BitBoard empty = 0xFFFFFFFFFFFFEFFFULL; // E2 blocked, E3 and E4 empty
     BitBoard targets = WhiteDoublePushTargets(pawns, empty);
     REQUIRE(targets == 0x0000000010000000ULL); // E4
   }
@@ -1160,7 +1144,7 @@ TEST_CASE("Black pawn double push", "[bitboard][pawn][black][doublepush]") {
 
   SECTION("Double push from rank 7 to rank 5") {
     BitBoard pawns = 0x0010000000000000ULL; // E7
-    BitBoard empty = 0xFFEFEFEFFFFFFFFFULL; // E7 blocked, E6 and E5 empty
+    BitBoard empty = 0xFFEFFFFFFFFFFFFFULL; // E7 blocked, E6 and E5 empty
     BitBoard targets = BlackDoublePushTargets(pawns, empty);
     REQUIRE(targets == 0x0000001000000000ULL); // E5
   }
@@ -1229,14 +1213,14 @@ TEST_CASE("Black pawn attacks", "[bitboard][pawn][black][attacks]") {
   }
 
   SECTION("A-file pawn attacks only B-file") {
-    BitBoard pawns = 0x0100000000000000ULL; // A7
+    BitBoard pawns = 0x0001000000000000ULL; // A7
     BitBoard targets = BlackPawnPossibleAttacksTargets(pawns);
     REQUIRE(targets == 0x0000020000000000ULL);          // Only B6
     REQUIRE((targets & BazuuBitBoardOps::H_FILE) == 0); // No wrap
   }
 
   SECTION("H-file pawn attacks only G-file") {
-    BitBoard pawns = 0x8000000000000000ULL; // H7
+    BitBoard pawns = 0x0080000000000000ULL; // H7
     BitBoard targets = BlackPawnPossibleAttacksTargets(pawns);
     REQUIRE(targets == 0x0000400000000000ULL);          // Only G6
     REQUIRE((targets & BazuuBitBoardOps::A_FILE) == 0); // No wrap

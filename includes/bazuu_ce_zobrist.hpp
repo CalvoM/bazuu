@@ -17,6 +17,6 @@ private:
                      [std::to_underlying(BoardSquares::NO_SQ)];
   U64 side_to_move_hash_key[std::to_underlying(Colours::Both)];
   U64 castling_hash_key[16];
-  U64 enpassant_hash_key[std::to_underlying(File::NONE)];
+  U64 enpassant_hash_key[std::to_underlying(BoardSquares::NO_SQ)];
 };
 #endif
